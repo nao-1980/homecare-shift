@@ -69,6 +69,9 @@
   .tscroll table{min-width:560px;}
   .tscroll td.rowhdr{position:sticky;left:0;z-index:2;background:var(--grey);box-shadow:1px 0 0 var(--line);}
   .mhint{display:none;font-size:11.5px;color:#2E5496;margin:0 0 8px;}
+  .daterow{display:flex;gap:18px;flex-wrap:wrap;}
+  .daterow label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--navy);}
+  .daterow input[type=date]{font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid #ccc;border-radius:7px;}
   /* スマホ向け調整 */
   @media (max-width:640px){
     header{padding:13px 16px;}
@@ -95,8 +98,17 @@
 <div class="wrap">
 
   <div class="card no-print">
+    <h2>📅 対象期間</h2>
+    <p class="hint">各週の月曜日の日付を入れてください。曜日の見出しに日付が表示されます。</p>
+    <div class="daterow">
+      <label>1週目（月）<input type="date" id="wk1Start" onchange="onDateChange()"></label>
+      <label>2週目（月）<input type="date" id="wk2Start" onchange="onDateChange()"></label>
+    </div>
+  </div>
+
+  <div class="card no-print">
     <h2>① 医師スケジュール</h2>
-    <p class="hint">セルをタップすると選択メニューが開きます（○=稼働 / ×=休）。</p>
+    <p class="hint">1週目・2週目それぞれ、セルをタップして設定します（○=稼働 / ×=休）。週ごとに別々に設定できます。</p>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="docTbl"></table></div>
   </div>
@@ -159,12 +171,40 @@ const DEFAULT={
   paPref:["友佳子"]
 };
 let DOC={}, NUR={}, NAV={}, NG=[], PAPREF=[];
+let WKSTART=["",""]; // 各週の月曜日(ISO yyyy-mm-dd)
+
+/* ===== 日付ユーティリティ ===== */
+function pad2(n){return String(n).padStart(2,"0");}
+function isoOf(d){return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate());}
+function parseISO(s){ if(!s)return null; const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+function addDays(d,n){ const x=new Date(d.getTime()); x.setDate(x.getDate()+n); return x; }
+function fmtMD(d){ return (d.getMonth()+1)+"/"+d.getDate(); }
+function nextMonday(from){ const d=new Date(from.getFullYear(),from.getMonth(),from.getDate());
+  const diff=(8-d.getDay())%7||7; return addDays(d,diff); } // 今日以降の次の月曜
+function dayDate(wk,i){ const s=parseISO(WKSTART[wk]); return s?addDays(s,i):null; } // wk週のi曜(月=0)
+function weekTitle(wk){ const s=parseISO(WKSTART[wk]);
+  return s? `${wk+1}週目（${fmtMD(s)}〜${fmtMD(addDays(s,4))}）` : `${wk+1}週目`; }
+function dayLabel(wk,i){ const dt=dayDate(wk,i);
+  return dt? `${WD[i]}<br><small style="font-weight:400;opacity:.85">${fmtMD(dt)}</small>` : `${WD[i]}`; }
+function initDates(){ const m1=nextMonday(new Date()); WKSTART=[isoOf(m1), isoOf(addDays(m1,7))]; }
+function onDateChange(){
+  const a=document.getElementById("wk1Start").value, b=document.getElementById("wk2Start").value;
+  if(a)WKSTART[0]=a; if(b)WKSTART[1]=b;
+  // 2週目が空 or 1週目と同じ以前なら 1週目+7 に自動補正
+  if(WKSTART[0] && (!WKSTART[1] || parseISO(WKSTART[1])<=parseISO(WKSTART[0])))
+    WKSTART[1]=isoOf(addDays(parseISO(WKSTART[0]),7));
+  renderDates(); renderInputs(); document.getElementById("result").innerHTML="";
+}
+function renderDates(){
+  document.getElementById("wk1Start").value=WKSTART[0];
+  document.getElementById("wk2Start").value=WKSTART[1];
+}
 
 function clone(o){return JSON.parse(JSON.stringify(o));}
 function loadDefault(){
-  DOC={}; // name -> [5 states] state: "○""×""希"
+  DOC={}; // name -> [10 states]（1週目0-4 / 2週目5-9） state: "○""×"
   for(const n in DEFAULT.docDays){
-    DOC[n]=[0,1,2,3,4].map(wd=>DEFAULT.docDays[n].includes(wd)?"○":"×");
+    DOC[n]=[0,1,2,3,4,5,6,7,8,9].map(di=>DEFAULT.docDays[n].includes(di%5)?"○":"×");
   }
   NUR={}; // name -> {pa:bool, av:[10]}  ※1週目0-4 / 2週目5-9
   for(const [nm,pa] of DEFAULT.nurses){
@@ -182,19 +222,22 @@ const NUR_CYCLE={"○":"×","×":"△","△":"○"};
 function cls(v){return v==="○"?"on":v==="×"?"off":v==="希"?"kibo":"nai";}
 
 function renderInputs(){
-  // doctors
-  let h="<thead><tr><th>医師</th>"+WD.map(d=>`<th>${d}曜</th>`).join("")+"</tr></thead><tbody>";
+  // doctors（週別：1週目 月〜金 / 2週目 月〜金）
+  let h="<thead><tr><th rowspan='2'>医師</th>"+
+    `<th colspan='5' class='daysep'>${weekTitle(0)}</th><th colspan='5'>${weekTitle(1)}</th></tr><tr>`+
+    [0,1].map(wk=>WD.map((d,i)=>`<th class='${(wk===0&&i===4)?"daysep":""}'>${dayLabel(wk,i)}</th>`).join("")).join("")+
+    "</tr></thead><tbody>";
   const docOrder=Object.keys(DOC).sort((a,b)=>(({"友佳子":1,"X":2}[a]||0))-(({"友佳子":1,"X":2}[b]||0)));
   for(const n of docOrder){
     h+=`<tr><td class="rowhdr">${n}</td>`;
-    DOC[n].forEach((v,wd)=>{ h+=`<td class="av ${cls(v)}" onclick="openPick(event,'doc','${n}',${wd})">${v}</td>`; });
+    DOC[n].forEach((v,di)=>{ const sep=(di===4)?"daysep":""; h+=`<td class="av ${cls(v)} ${sep}" onclick="openPick(event,'doc','${n}',${di})">${v}</td>`; });
     h+="</tr>";
   }
   document.getElementById("docTbl").innerHTML=h+"</tbody>";
   // nurses（週別：1週目 月〜金 / 2週目 月〜金）
   let g="<thead><tr><th rowspan='2'>看護師</th><th rowspan='2'>区分</th>"+
-    "<th colspan='5' class='daysep'>1週目</th><th colspan='5'>2週目</th><th rowspan='2'></th></tr><tr>"+
-    [0,1].map(wk=>WD.map((d,i)=>`<th class='${(wk===0&&i===4)?"daysep":""}'>${d}</th>`).join("")).join("")+
+    `<th colspan='5' class='daysep'>${weekTitle(0)}</th><th colspan='5'>${weekTitle(1)}</th><th rowspan='2'></th></tr><tr>`+
+    [0,1].map(wk=>WD.map((d,i)=>`<th class='${(wk===0&&i===4)?"daysep":""}'>${dayLabel(wk,i)}</th>`).join("")).join("")+
     "</tr></thead><tbody>";
   for(const n in NUR){
     g+=`<tr><td class="rowhdr">${n}</td><td>${NUR[n].pa?"PA(アシ)":"常勤"}</td>`;
@@ -250,7 +293,7 @@ function addNG(){const d=ngDoc.value,n=ngNur.value;if(d&&n&&!NG.some(p=>p[0]==d&
 function addPA(){const d=paDoc.value;if(d&&!PAPREF.includes(d)){PAPREF.push(d);renderRules();}}
 
 /* ===== 割当エンジン（build2.py と同一ロジック）===== */
-function davail(name,di){ return DOC[name][di%5]; }      // ○ / × / 希
+function davail(name,di){ return DOC[name][di]; }         // 週別 ○ / ×（di:0-9）
 function navail(name,di){ return NUR[name].av[di]; }      // 週別 ○ / × / 希 / △（di:0-9）
 function isNG(doc,nur){ return NG.some(p=>p[0]===doc&&p[1]===nur); }
 
@@ -321,8 +364,8 @@ function generate(){
   const ROWS=Math.max(MAX,...R.schedule.map((p,di)=>p.length+STANDBY[di].length+INHOUSE[di].length));
   let html="";
   for(let wk=0; wk<NWK; wk++){
-    html+=`<div class="card"><div class="wk-title">${wk+1}週目</div><div class="tscroll"><table>`;
-    html+="<thead><tr><th rowspan='2'>車</th>"+WD.map((d,i)=>`<th colspan='2' class='${i<4?"daysep":""}'>${d}曜</th>`).join("")+"</tr><tr>";
+    html+=`<div class="card"><div class="wk-title">${weekTitle(wk)}</div><div class="tscroll"><table>`;
+    html+="<thead><tr><th rowspan='2'>車</th>"+WD.map((d,i)=>`<th colspan='2' class='${i<4?"daysep":""}'>${dayLabel(wk,i)}</th>`).join("")+"</tr><tr>";
     for(let i=0;i<5;i++){ html+=`<th>医師</th><th class='${i<4?"daysep":""}'>看護師</th>`; }
     html+="</tr></thead><tbody>";
     for(let ci=0; ci<ROWS; ci++){
@@ -409,7 +452,7 @@ function copyTable(){
 function resetAll(){ if(confirm("入力を初期値に戻しますか？")){loadDefault();renderInputs();document.getElementById("result").innerHTML="";} }
 
 /* 起動 */
-loadDefault(); renderInputs(); generate();
+initDates(); loadDefault(); renderDates(); renderInputs(); generate();
 </script>
 </body>
 </html>
