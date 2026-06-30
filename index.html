@@ -33,6 +33,11 @@
   .gen:hover{background:#256127;}
   .sec{background:#fff;border:1px solid var(--green);color:var(--green);font-weight:700;}
   .sec:hover{background:#f0f7f0;}
+  .cloud{background:var(--blue);color:#fff;font-weight:700;}
+  .cloud:hover{background:#24477f;}
+  .cstatus{font-size:12.5px;color:#667085;align-self:center;}
+  .cstatus.err{color:var(--red);}
+  .cstatus.ok{color:var(--green);}
   details{margin-top:6px;}
   summary{cursor:pointer;color:var(--blue);font-size:13px;font-weight:600;padding:6px 0;}
   .ng-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
@@ -153,6 +158,11 @@
     <button class="sec" onclick="window.print()">🖨 印刷 / PDF保存</button>
     <button class="sec" onclick="copyTable()">📋 表をコピー</button>
     <button class="sec" onclick="resetAll()">↺ 初期値に戻す</button>
+  </div>
+  <div class="controls no-print" style="margin-top:8px">
+    <button class="cloud" onclick="cloudSave()">☁ クラウドに保存（全員に共有）</button>
+    <button class="sec" onclick="cloudLoad()">⟳ 最新を読み込み</button>
+    <span id="cloudStatus" class="cstatus"></span>
   </div>
 
   <div id="result"></div>
@@ -467,8 +477,53 @@ function copyTable(){
 }
 function resetAll(){ if(confirm("入力を初期値に戻しますか？")){loadDefault();renderInputs();document.getElementById("result").innerHTML="";} }
 
+/* ===== クラウド共有保存（jsonbin.io）===== */
+const STORE_ID="6a43ef5ada38895dfe170011";
+const STORE_KEY="$2a$10$Upa35mL92W13IA68FDyYPeAoMbBJzY15f0jcdKfPDqAeVx2miPb/q";
+const STORE_URL="https://api.jsonbin.io/v3/b/"+STORE_ID;
+function setCloud(msg,kind){ const e=document.getElementById("cloudStatus"); if(!e)return;
+  e.textContent=msg; e.className="cstatus"+(kind?(" "+kind):""); }
+function fmtDT(iso){ try{return new Date(iso).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});}catch(e){return iso;} }
+function gatherState(){ return {WKSTART:WKSTART.slice(), DOC:clone(DOC), NUR:clone(NUR), NG:clone(NG), PAPREF:clone(PAPREF), savedAt:new Date().toISOString()}; }
+function applyState(s){
+  if(!s||typeof s!=="object") return false;
+  if(Array.isArray(s.WKSTART)&&s.WKSTART.length===2) WKSTART=s.WKSTART.slice();
+  if(s.DOC&&typeof s.DOC==="object") DOC=s.DOC;
+  if(s.NUR&&typeof s.NUR==="object") NUR=s.NUR;
+  if(Array.isArray(s.NG)) NG=s.NG;
+  if(Array.isArray(s.PAPREF)) PAPREF=s.PAPREF;
+  return true;
+}
+async function cloudSave(){
+  setCloud("保存中…");
+  try{
+    const r=await fetch(STORE_URL,{method:"PUT",
+      headers:{"Content-Type":"application/json","X-Access-Key":STORE_KEY},
+      body:JSON.stringify({state:gatherState(),_app:"homecare-shift"})});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    setCloud("✓ 保存しました（"+fmtDT(new Date().toISOString())+"）— 全員に共有されました","ok");
+  }catch(e){ setCloud("保存に失敗しました："+e.message,"err"); }
+}
+async function cloudLoad(){
+  setCloud("読み込み中…");
+  try{
+    const r=await fetch(STORE_URL+"/latest",{headers:{"X-Access-Key":STORE_KEY},cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const rec=(await r.json()).record;
+    if(rec&&rec.state&&typeof rec.state==="object"&&rec.state.DOC){
+      applyState(rec.state); renderDates(); renderInputs(); generate();
+      setCloud("✓ 共有データを表示中（最終保存："+(rec.state.savedAt?fmtDT(rec.state.savedAt):"不明")+"）","ok");
+      return true;
+    }else{ setCloud("共有データはまだありません（初期値を表示中）。編集して「クラウドに保存」を押すと共有されます。"); return false; }
+  }catch(e){ setCloud("読み込みに失敗しました："+e.message,"err"); return false; }
+}
+
 /* 起動 */
-initDates(); loadDefault(); renderDates(); renderInputs(); generate();
+async function start(){
+  initDates(); loadDefault(); renderDates(); renderInputs(); generate();
+  await cloudLoad(); // 共有データがあれば反映
+}
+start();
 </script>
 </body>
 </html>
