@@ -301,9 +301,10 @@ function solve(){
   const docLabels=Object.keys(DOC), nurseNames=Object.keys(NUR);
   const paSet=new Set(nurseNames.filter(n=>NUR[n].pa));
   const nload={}; nurseNames.forEach(n=>nload[n]=0);
-  const pcount={}; // `${doc}|${n}`
+  let pairCnt={}; // 週内の同ペア回数 `${doc}|${n}`（週ごとにリセット）
   const schedule=[], unfilled=[], soft=[];
   for(let di=0; di<NDAY; di++){
+    if(di%5===0) pairCnt={}; // 週の頭でリセット（1週間内の重複を抑制）
     const docs=docLabels.filter(l=>davail(l,di)==="○");
     // 看護師が足りない時の充当優先：一般医師 ＞ 友佳子 ＞ X(内勤車)。PA優先は看護師の種類選びにのみ反映。
     const fillRank=d=>(({"友佳子":1,"X":2}[d]||0));
@@ -320,24 +321,25 @@ function solve(){
       });
       if(elig.length===0){ assign[doc]=null; unfilled.push([di,doc]); continue; }
       const naik=n=>navail(n,di)==="△"?1:0;   // 内勤は最後尾
+      const pc=n=>pairCnt[doc+"|"+n]||0;       // 今週この医師と既に組んだ回数
       let pick;
       if(PAPREF.includes(doc)){
         elig.sort((a,b)=>{
           const na=naik(a)-naik(b); if(na!==0)return na;
-          const ea=(pcount[doc+"|"+a]||0)+(paSet.has(a)?0:NURSE_BIAS);
-          const eb=(pcount[doc+"|"+b]||0)+(paSet.has(b)?0:NURSE_BIAS);
+          const pr=pc(a)-pc(b); if(pr!==0)return pr;   // ①週内の同ペア重複を最優先で回避
+          const ea=paSet.has(a)?0:NURSE_BIAS;          // ②PA優先
+          const eb=paSet.has(b)?0:NURSE_BIAS;
           if(ea!==eb)return ea-eb;
-          const pa=(paSet.has(a)?0:1)-(paSet.has(b)?0:1); if(pa!==0)return pa;
-          return nload[a]-nload[b];
+          return nload[a]-nload[b];                    // ③負荷分散
         });
-        pick=elig[0]; pcount[doc+"|"+pick]=(pcount[doc+"|"+pick]||0)+1;
       }else{
         elig.sort((a,b)=>{
           const na=naik(a)-naik(b); if(na!==0)return na;
-          return nload[a]-nload[b];
+          const pr=pc(a)-pc(b); if(pr!==0)return pr;   // ①週内の同ペア重複を最優先で回避
+          return nload[a]-nload[b];                    // ②負荷分散
         });
-        pick=elig[0];
       }
+      pick=elig[0]; pairCnt[doc+"|"+pick]=(pairCnt[doc+"|"+pick]||0)+1;
       used.add(pick); nload[pick]++;
       assign[doc]=pick;
     }
@@ -401,11 +403,13 @@ function generate(){
   const violations = R.soft.length; // 希充当（参考）
   const ngBad = checkNG(R);
   const unfilledN = R.unfilled.length;
+  const pairRep = checkPairRepeat(R);
   const healthy = dup===0 && ngBad===0 && unfilledN===0;
   html+=`<div class="card"><h2>検証</h2>`+
     vrow("看護師の同日重複", dup===0, dup+"件")+
     vrow("NGペアの割当", ngBad===0, ngBad+"件")+
     vrow("看護師不足（医師居るが看護師欠）", unfilledN===0, unfilledN+"件")+
+    vrow("週内で同じ医師×看護師の重複", pairRep===0, pairRep+"件"+(pairRep>0?"（人員・条件上やむを得ない分）":""))+
     `<div style="margin-top:12px;text-align:center"><span class="badge ${healthy?"ok":"warn"}">総合判定：${healthy?"健全":"要確認"}</span>`+
     (R.soft.length?`<span class="legend" style="margin-left:10px">※希望休の充当 ${R.soft.length}件（人員不足時のみ）</span>`:"")+`</div></div>`;
 
@@ -438,6 +442,18 @@ function checkNG(R){
   let bad=0;
   for(let di=0;di<NDAY;di++) for(const [d,n] of R.schedule[di]) if(n&&isNG(d,n)) bad++;
   return bad;
+}
+// 各週で、同じ医師×看護師の組み合わせが2回以上出た「超過回数」の合計
+function checkPairRepeat(R){
+  let extra=0;
+  for(let wk=0; wk<NWK; wk++){
+    const cnt={};
+    for(let wd=0; wd<5; wd++){
+      for(const [d,n] of R.schedule[wk*5+wd]){ if(n){ const k=d+"|"+n; cnt[k]=(cnt[k]||0)+1; } }
+    }
+    for(const k in cnt) if(cnt[k]>1) extra+=cnt[k]-1;
+  }
+  return extra;
 }
 
 /* ===== ユーティリティ ===== */
