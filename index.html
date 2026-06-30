@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訪問診療 シフト生成ツール</title>
+<style>
+  :root{--navy:#1F3864;--blue:#2E5496;--lblue:#D6E4F0;--grey:#F2F2F2;--green:#2E7D32;
+        --greenbg:#E2EFDA;--purple:#E6E0F0;--orange:#FCE4D6;--red:#C00000;--line:#BFBFBF;}
+  *{box-sizing:border-box;}
+  body{font-family:"Yu Gothic","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
+       margin:0;background:#F7F9FC;color:#1a1a1a;font-size:14px;}
+  header{background:var(--navy);color:#fff;padding:16px 22px;}
+  header h1{margin:0;font-size:19px;}
+  header p{margin:4px 0 0;font-size:12.5px;opacity:.85;}
+  .wrap{max-width:1180px;margin:0 auto;padding:18px;}
+  .card{background:#fff;border:1px solid #E3E8F0;border-radius:10px;padding:16px 18px;margin-bottom:16px;
+        box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .card h2{font-size:15px;margin:0 0 4px;color:var(--navy);}
+  .card .hint{font-size:12px;color:#667085;margin:0 0 12px;}
+  table{border-collapse:collapse;width:100%;}
+  th,td{border:1px solid var(--line);padding:5px 6px;text-align:center;font-size:13px;}
+  thead th{background:var(--navy);color:#fff;font-weight:700;}
+  .rowhdr{background:var(--grey);font-weight:700;text-align:left;padding-left:10px;white-space:nowrap;}
+  .av{cursor:pointer;font-weight:700;user-select:none;min-width:42px;}
+  .av.on{background:#fff;color:#1a7a1a;}
+  .av.off{background:var(--orange);color:#999;}
+  .av.kibo{background:#FFF2CC;color:#9a7b00;}
+  .av.nai{background:var(--lblue);color:#2E5496;}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:4px;}
+  button{font-family:inherit;font-size:14px;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;}
+  .gen{background:var(--green);color:#fff;font-weight:700;}
+  .gen:hover{background:#256127;}
+  .sec{background:#fff;border:1px solid var(--green);color:var(--green);font-weight:700;}
+  .sec:hover{background:#f0f7f0;}
+  details{margin-top:6px;}
+  summary{cursor:pointer;color:var(--blue);font-size:13px;font-weight:600;padding:6px 0;}
+  .ng-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .tag{background:var(--grey);border:1px solid #ddd;border-radius:14px;padding:3px 10px;font-size:12px;display:flex;gap:6px;align-items:center;}
+  .tag b{font-weight:700;}
+  .tag span{cursor:pointer;color:#c00;font-weight:700;}
+  .doc{background:var(--lblue);font-weight:700;}
+  .nur-jp{background:var(--greenbg);}
+  .nur-pa{background:var(--purple);}
+  .nur-no{background:var(--orange);color:#b06;}
+  .wk-title{background:var(--navy);color:#fff;text-align:left;padding:7px 10px;font-weight:700;border-radius:6px 6px 0 0;}
+  .daysep{border-right:2px solid #7F7F7F !important;}
+  .legend{font-size:12px;color:#595959;margin-top:8px;}
+  .badge{display:inline-block;padding:3px 12px;border-radius:14px;font-weight:700;font-size:13px;}
+  .ok{background:var(--greenbg);color:var(--green);}
+  .warn{background:var(--orange);color:var(--red);}
+  .vrow{display:flex;justify-content:space-between;align-items:center;padding:7px 4px;border-bottom:1px solid #eee;font-size:13px;}
+  .bar{height:14px;background:var(--green);border-radius:3px;display:inline-block;vertical-align:middle;}
+  .barwrap{display:flex;align-items:center;gap:8px;}
+  select{font-family:inherit;font-size:12.5px;padding:3px;border:1px solid #ccc;border-radius:5px;}
+  .addrow{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+  @media print{header,.no-print{display:none;}body{background:#fff;}}
+  .pickmenu{position:fixed;z-index:1000;background:#fff;border:1px solid #bbb;border-radius:8px;
+    box-shadow:0 4px 18px rgba(0,0,0,.18);padding:4px;min-width:132px;display:none;}
+  .pm-h{font-size:11px;color:#888;padding:3px 8px 5px;border-bottom:1px solid #eee;margin-bottom:3px;text-align:left;}
+  .pm-opt{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;cursor:pointer;font-size:13.5px;}
+  .pm-opt:hover{background:#EEF3FB;}
+  .pm-opt.sel{background:#E2EFDA;font-weight:700;}
+  .pm-sym{display:inline-block;min-width:24px;text-align:center;font-weight:700;border:1px solid #ddd;border-radius:5px;padding:1px 0;}
+  .pm-lab{color:#333;}
+  @media print{.pickmenu{display:none !important;}}
+</style>
+</head>
+<body>
+<header>
+  <h1>訪問診療 シフト生成ツール</h1>
+  <p>医師1＋看護師1 ／ 2週間ローテーション ／ マクロ不要・ブラウザだけで動作</p>
+</header>
+<div class="wrap">
+
+  <div class="card no-print">
+    <h2>① 医師スケジュール</h2>
+    <p class="hint">セルをクリックすると選択メニューが開きます（○=稼働 / ×=休）。</p>
+    <table id="docTbl"></table>
+  </div>
+
+  <div class="card no-print">
+    <h2>② 看護師</h2>
+    <p class="hint">セルをクリックすると選択メニューが開きます（○=稼働 / ×=休 / △=内勤）。PAで始まる名前はアシスタント扱い。</p>
+    <table id="nurTbl"></table>
+    <div class="addrow">
+      <input id="newNur" placeholder="看護師名（PA…でアシ）" style="padding:6px;border:1px solid #ccc;border-radius:6px;">
+      <button class="sec" onclick="addNurse()">＋ 追加</button>
+    </div>
+  </div>
+
+  <!-- ③ 詳細ルール：UIは非表示。NGペア・PA優先は初期データ(DEFAULT)として裏で反映済み -->
+  <div class="card no-print" style="display:none">
+    <details>
+      <summary>③ 詳細ルール（NGペア・PA優先）※必要な人だけ</summary>
+      <div style="margin-top:10px;">
+        <b style="font-size:13px;">NGペア（この医師×看護師は組ませない）</b>
+        <div class="ng-list" id="ngList"></div>
+        <div class="addrow">
+          <select id="ngDoc"></select>×<select id="ngNur"></select>
+          <button class="sec" onclick="addNG()">＋ NG追加</button>
+        </div>
+        <div style="margin-top:14px;">
+          <b style="font-size:13px;">PA優先の医師</b>
+          <span class="hint">（なるべくPAアシを同乗させる医師）</span>
+          <div class="ng-list" id="paList"></div>
+          <div class="addrow">
+            <select id="paDoc"></select>
+            <button class="sec" onclick="addPA()">＋ 追加</button>
+          </div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="controls no-print">
+    <button class="gen" onclick="generate()">▶ シフトを生成</button>
+    <button class="sec" onclick="window.print()">🖨 印刷 / PDF保存</button>
+    <button class="sec" onclick="copyTable()">📋 表をコピー</button>
+    <button class="sec" onclick="resetAll()">↺ 初期値に戻す</button>
+  </div>
+
+  <div id="result"></div>
+</div>
+
+<script>
+/* ===== 初期データ（Excel版と同一）===== */
+const WD=["月","火","水","木","金"];
+const NWK=2, NDAY=NWK*5, NURSE_BIAS=1.5;
+const DEFAULT={
+  docDays:{ "寺田":[0,2,4],"鈴木":[0,1,2,3,4],"守屋":[0,2,3,4],"高宮":[0,1,2,3],"友佳子":[0,1,2,3,4],
+            "牧野":[1,2,3,4],"土橋":[1],"飯島":[1],"田中":[1],"佐々木":[2],"長岡":[4],"X":[0,1,2,3,4] },
+  nurses:[["佐藤",0],["武田",0],["笹沼",0],["大畑",0],["松田",0],["PA萩原",1],["PA佐藤",1]],
+  navail:{"PA萩原|3":"△"},
+  ng:[["鈴木","PA萩原"],["鈴木","PA佐藤"],["寺田","武田"],["牧野","笹沼"],["牧野","PA萩原"],["牧野","PA佐藤"]],
+  paPref:["友佳子"]
+};
+let DOC={}, NUR={}, NAV={}, NG=[], PAPREF=[];
+
+function clone(o){return JSON.parse(JSON.stringify(o));}
+function loadDefault(){
+  DOC={}; // name -> [5 states] state: "○""×""希"
+  for(const n in DEFAULT.docDays){
+    DOC[n]=[0,1,2,3,4].map(wd=>DEFAULT.docDays[n].includes(wd)?"○":"×");
+  }
+  NUR={}; // name -> {pa:bool, av:[10]}  ※1週目0-4 / 2週目5-9
+  for(const [nm,pa] of DEFAULT.nurses){
+    // 既定は両週同じパターン。キー "名前|wd"(両週) または "名前|di"(0-9で週別指定) に対応
+    const av=[0,1,2,3,4,5,6,7,8,9].map(di=>
+      DEFAULT.navail[nm+"|"+di] ?? DEFAULT.navail[nm+"|"+(di%5)] ?? "○");
+    NUR[nm]={pa:!!pa, av};
+  }
+  NG=clone(DEFAULT.ng); PAPREF=clone(DEFAULT.paPref);
+}
+
+/* ===== 入力UI ===== */
+const DOC_CYCLE={"○":"×","×":"○"};
+const NUR_CYCLE={"○":"×","×":"△","△":"○"};
+function cls(v){return v==="○"?"on":v==="×"?"off":v==="希"?"kibo":"nai";}
+
+function renderInputs(){
+  // doctors
+  let h="<thead><tr><th>医師</th>"+WD.map(d=>`<th>${d}曜</th>`).join("")+"</tr></thead><tbody>";
+  const docOrder=Object.keys(DOC).sort((a,b)=>(({"友佳子":1,"X":2}[a]||0))-(({"友佳子":1,"X":2}[b]||0)));
+  for(const n of docOrder){
+    h+=`<tr><td class="rowhdr">${n}</td>`;
+    DOC[n].forEach((v,wd)=>{ h+=`<td class="av ${cls(v)}" onclick="openPick(event,'doc','${n}',${wd})">${v}</td>`; });
+    h+="</tr>";
+  }
+  document.getElementById("docTbl").innerHTML=h+"</tbody>";
+  // nurses（週別：1週目 月〜金 / 2週目 月〜金）
+  let g="<thead><tr><th rowspan='2'>看護師</th><th rowspan='2'>区分</th>"+
+    "<th colspan='5' class='daysep'>1週目</th><th colspan='5'>2週目</th><th rowspan='2'></th></tr><tr>"+
+    [0,1].map(wk=>WD.map((d,i)=>`<th class='${(wk===0&&i===4)?"daysep":""}'>${d}</th>`).join("")).join("")+
+    "</tr></thead><tbody>";
+  for(const n in NUR){
+    g+=`<tr><td class="rowhdr">${n}</td><td>${NUR[n].pa?"PA(アシ)":"常勤"}</td>`;
+    NUR[n].av.forEach((v,di)=>{ const sep=(di===4)?"daysep":""; g+=`<td class="av ${cls(v)} ${sep}" onclick="openPick(event,'nur','${n}',${di})">${v}</td>`; });
+    g+=`<td class="no-print"><span style="cursor:pointer;color:#c00;font-weight:700;" onclick="delNurse('${n}')">×</span></td></tr>`;
+  }
+  document.getElementById("nurTbl").innerHTML=g+"</tbody>";
+  renderRules();
+}
+function cycDoc(n,wd){ DOC[n][wd]=DOC_CYCLE[DOC[n][wd]]; renderInputs(); }
+function cycNur(n,di){ NUR[n].av[di]=NUR_CYCLE[NUR[n].av[di]]; renderInputs(); }
+const PICK_OPTS={doc:[["○","稼働"],["×","休"]],nur:[["○","稼働"],["×","休"],["△","内勤"]]};
+function pmStyle(v){return v==="○"?"background:#fff;color:#1a7a1a":v==="×"?"background:#FCE4D6;color:#b06":"background:#D6E4F0;color:#2E5496";}
+function openPick(ev,type,name,di){
+  ev.stopPropagation();
+  let m=document.getElementById("pickMenu");
+  if(!m){m=document.createElement("div");m.id="pickMenu";m.className="pickmenu";document.body.appendChild(m);}
+  const cur=type==="doc"?DOC[name][di]:NUR[name].av[di];
+  m.innerHTML=`<div class="pm-h">${name}</div>`+PICK_OPTS[type].map(([v,lab])=>
+    `<div class="pm-opt ${v===cur?"sel":""}" onclick="pick('${type}','${name}',${di},'${v}')">`+
+    `<span class="pm-sym" style="${pmStyle(v)}">${v}</span><span class="pm-lab">${lab}</span></div>`).join("");
+  m.style.display="block";
+  const r=ev.target.getBoundingClientRect();
+  const mw=m.offsetWidth||140, mh=m.offsetHeight||120;
+  let left=r.left, top=r.bottom+4;
+  if(left+mw>window.innerWidth-8) left=window.innerWidth-mw-8;
+  if(top+mh>window.innerHeight-8) top=r.top-mh-4;
+  m.style.left=Math.max(8,left)+"px"; m.style.top=Math.max(8,top)+"px";
+}
+function pick(type,name,di,v){ if(type==="doc")DOC[name][di]=v; else NUR[name].av[di]=v; closePick(); renderInputs(); }
+function closePick(){ const m=document.getElementById("pickMenu"); if(m)m.style.display="none"; }
+document.addEventListener("click",e=>{ const m=document.getElementById("pickMenu");
+  if(m&&m.style.display==="block"&&!m.contains(e.target)) closePick(); });
+function addNurse(){
+  const v=document.getElementById("newNur").value.trim();
+  if(!v||NUR[v])return;
+  NUR[v]={pa:v.startsWith("PA"),av:[0,1,2,3,4,5,6,7,8,9].map(_=> "○")};
+  document.getElementById("newNur").value=""; renderInputs();
+}
+function delNurse(n){ delete NUR[n]; renderInputs(); }
+
+function renderRules(){
+  const docNames=Object.keys(DOC), nurNames=Object.keys(NUR);
+  document.getElementById("ngDoc").innerHTML=docNames.map(d=>`<option>${d}</option>`).join("");
+  document.getElementById("ngNur").innerHTML=nurNames.map(d=>`<option>${d}</option>`).join("");
+  document.getElementById("paDoc").innerHTML=docNames.map(d=>`<option>${d}</option>`).join("");
+  document.getElementById("ngList").innerHTML=NG.map((p,i)=>
+    `<span class="tag"><b>${p[0]}</b>×${p[1]}<span onclick="NG.splice(${i},1);renderRules()">×</span></span>`).join("")||"<span class='hint'>なし</span>";
+  document.getElementById("paList").innerHTML=PAPREF.map((d,i)=>
+    `<span class="tag"><b>${d}</b><span onclick="PAPREF.splice(${i},1);renderRules()">×</span></span>`).join("")||"<span class='hint'>なし</span>";
+}
+function addNG(){const d=ngDoc.value,n=ngNur.value;if(d&&n&&!NG.some(p=>p[0]==d&&p[1]==n)){NG.push([d,n]);renderRules();}}
+function addPA(){const d=paDoc.value;if(d&&!PAPREF.includes(d)){PAPREF.push(d);renderRules();}}
+
+/* ===== 割当エンジン（build2.py と同一ロジック）===== */
+function davail(name,di){ return DOC[name][di%5]; }      // ○ / × / 希
+function navail(name,di){ return NUR[name].av[di]; }      // 週別 ○ / × / 希 / △（di:0-9）
+function isNG(doc,nur){ return NG.some(p=>p[0]===doc&&p[1]===nur); }
+
+function solve(){
+  const docLabels=Object.keys(DOC), nurseNames=Object.keys(NUR);
+  const paSet=new Set(nurseNames.filter(n=>NUR[n].pa));
+  const nload={}; nurseNames.forEach(n=>nload[n]=0);
+  const pcount={}; // `${doc}|${n}`
+  const schedule=[], unfilled=[], soft=[];
+  for(let di=0; di<NDAY; di++){
+    const docs=docLabels.filter(l=>davail(l,di)==="○");
+    // 看護師が足りない時の充当優先：一般医師 ＞ 友佳子 ＞ X(内勤車)。PA優先は看護師の種類選びにのみ反映。
+    const fillRank=d=>(({"友佳子":1,"X":2}[d]||0));
+    const order=docs.slice().sort((a,b)=>fillRank(a)-fillRank(b));
+    const used=new Set(), assign={};
+    for(const doc of order){
+      // 内勤(△)は劣後：通常はXの空きのみ充当可、それ以外の医師には乗らない
+      let elig=nurseNames.filter(n=>{
+        if(used.has(n)||isNG(doc,n))return false;
+        const a=navail(n,di);
+        if(a==="○")return true;
+        if(a==="△")return doc==="X";   // 内勤はX車のみ
+        return false;
+      });
+      if(elig.length===0){ assign[doc]=null; unfilled.push([di,doc]); continue; }
+      const naik=n=>navail(n,di)==="△"?1:0;   // 内勤は最後尾
+      let pick;
+      if(PAPREF.includes(doc)){
+        elig.sort((a,b)=>{
+          const na=naik(a)-naik(b); if(na!==0)return na;
+          const ea=(pcount[doc+"|"+a]||0)+(paSet.has(a)?0:NURSE_BIAS);
+          const eb=(pcount[doc+"|"+b]||0)+(paSet.has(b)?0:NURSE_BIAS);
+          if(ea!==eb)return ea-eb;
+          const pa=(paSet.has(a)?0:1)-(paSet.has(b)?0:1); if(pa!==0)return pa;
+          return nload[a]-nload[b];
+        });
+        pick=elig[0]; pcount[doc+"|"+pick]=(pcount[doc+"|"+pick]||0)+1;
+      }else{
+        elig.sort((a,b)=>{
+          const na=naik(a)-naik(b); if(na!==0)return na;
+          return nload[a]-nload[b];
+        });
+        pick=elig[0];
+      }
+      used.add(pick); nload[pick]++;
+      assign[doc]=pick;
+    }
+    schedule.push(docs.slice().sort((a,b)=>(({"友佳子":1,"X":2}[a]||0))-(({"友佳子":1,"X":2}[b]||0))).map(d=>[d,assign[d]]));
+  }
+  return {schedule,unfilled,soft,nload,nurseNames,paSet};
+}
+
+/* ===== 結果描画 ===== */
+function generate(){
+  const R=solve();
+  const MAX=Math.max(...R.schedule.map(s=>s.length));
+  const CARS="ABCDEFGHIJ".split("");
+  // 各日の待機看護師（出勤可○/希だが乗車なし）
+  const STANDBY=R.schedule.map((pairs,di)=>{
+    const used=new Set(pairs.map(p=>p[1]).filter(Boolean));
+    return R.nurseNames.filter(n=>NUR[n].av[di]==="○"&&!used.has(n));
+  });
+  // 各日の内勤看護師（△指定でX車にも乗らなかった人）
+  const INHOUSE=R.schedule.map((pairs,di)=>{
+    const used=new Set(pairs.map(p=>p[1]).filter(Boolean));
+    return R.nurseNames.filter(n=>NUR[n].av[di]==="△"&&!used.has(n));
+  });
+  const ROWS=Math.max(MAX,...R.schedule.map((p,di)=>p.length+STANDBY[di].length+INHOUSE[di].length));
+  let html="";
+  for(let wk=0; wk<NWK; wk++){
+    html+=`<div class="card"><div class="wk-title">${wk+1}週目</div><table>`;
+    html+="<thead><tr><th rowspan='2'>車</th>"+WD.map((d,i)=>`<th colspan='2' class='${i<4?"daysep":""}'>${d}曜</th>`).join("")+"</tr><tr>";
+    for(let i=0;i<5;i++){ html+=`<th>医師</th><th class='${i<4?"daysep":""}'>看護師</th>`; }
+    html+="</tr></thead><tbody>";
+    for(let ci=0; ci<ROWS; ci++){
+      html+=`<tr><td class="rowhdr" style="text-align:center">${CARS[ci]}</td>`;
+      for(let wd=0; wd<5; wd++){
+        const di=wk*5+wd;
+        const pairs=R.schedule[di];
+        const sep=wd<4?"daysep":"";
+        if(ci<pairs.length){
+          const [doc,nur]=pairs[ci];
+          html+=`<td class="doc">${doc}</td>`;
+          if(nur){const c=R.paSet.has(nur)?"nur-pa":"nur-jp"; html+=`<td class="${c} ${sep}">${nur}</td>`;}
+          else html+=`<td class="nur-no ${sep}">—</td>`;
+        }else if(ci-pairs.length < STANDBY[di].length){
+          const nur=STANDBY[di][ci-pairs.length];
+          const c=R.paSet.has(nur)?"nur-pa":"nur-jp";
+          html+=`<td style="background:#FAFAFA;color:#888;font-size:12px">待機</td><td class="${c} ${sep}">${nur}</td>`;
+        }else if(ci-pairs.length-STANDBY[di].length < INHOUSE[di].length){
+          const nur=INHOUSE[di][ci-pairs.length-STANDBY[di].length];
+          const c=R.paSet.has(nur)?"nur-pa":"nur-jp";
+          html+=`<td style="background:var(--lblue);color:#2E5496;font-size:12px;font-weight:700">内勤</td><td class="${c} ${sep}">${nur}</td>`;
+        }else{
+          html+=`<td style="background:#FAFAFA"></td><td class="${sep}" style="background:#FAFAFA"></td>`;
+        }
+      }
+      html+="</tr>";
+    }
+    html+="</tbody></table><div class='legend'>背景：青=医師 / 緑=常勤看護師 / 紫=PA / —=看護師不足 / 待機=出勤可だが乗車なし / 内勤=△指定で訪問車に乗らず内勤（人手不足のX車のみ応援可）</div></div>";
+  }
+
+  // 検証
+  const dup = checkDup(R);
+  const violations = R.soft.length; // 希充当（参考）
+  const ngBad = checkNG(R);
+  const unfilledN = R.unfilled.length;
+  const healthy = dup===0 && ngBad===0 && unfilledN===0;
+  html+=`<div class="card"><h2>検証</h2>`+
+    vrow("看護師の同日重複", dup===0, dup+"件")+
+    vrow("NGペアの割当", ngBad===0, ngBad+"件")+
+    vrow("看護師不足（医師居るが看護師欠）", unfilledN===0, unfilledN+"件")+
+    `<div style="margin-top:12px;text-align:center"><span class="badge ${healthy?"ok":"warn"}">総合判定：${healthy?"健全":"要確認"}</span>`+
+    (R.soft.length?`<span class="legend" style="margin-left:10px">※希望休の充当 ${R.soft.length}件（人員不足時のみ）</span>`:"")+`</div></div>`;
+
+  // 負荷バー
+  const maxLoad=Math.max(1,...Object.values(R.nload));
+  html+=`<div class="card"><h2>看護師別 担当回数（2週間）</h2>`;
+  for(const n of R.nurseNames){
+    const w=Math.round(R.nload[n]/maxLoad*260);
+    html+=`<div class="vrow"><span>${n} <small style="color:#888">${NUR[n].pa?"PA":"常勤"}</small></span>`+
+      `<span class="barwrap"><span class="bar" style="width:${w}px;background:${NUR[n].pa?"#7E6BB0":"#2E7D32"}"></span><b>${R.nload[n]}</b></span></div>`;
+  }
+  html+=`</div>`;
+
+  document.getElementById("result").innerHTML=html;
+  window.scrollTo({top:document.getElementById("result").offsetTop-10,behavior:"smooth"});
+}
+function vrow(label,ok,detail){
+  return `<div class="vrow"><span>${label}</span><span><span class="badge ${ok?"ok":"warn"}">${ok?"OK":"要修正"}</span> <small style="color:#888">${detail}</small></span></div>`;
+}
+function checkDup(R){
+  let bad=0;
+  for(let di=0;di<NDAY;di++){
+    const seen={};
+    for(const [d,n] of R.schedule[di]){ if(n){ seen[n]=(seen[n]||0)+1; } }
+    for(const k in seen) if(seen[k]>1) bad++;
+  }
+  return bad;
+}
+function checkNG(R){
+  let bad=0;
+  for(let di=0;di<NDAY;di++) for(const [d,n] of R.schedule[di]) if(n&&isNG(d,n)) bad++;
+  return bad;
+}
+
+/* ===== ユーティリティ ===== */
+function copyTable(){
+  const r=document.getElementById("result");
+  if(!r.innerHTML){alert("先に「シフトを生成」を押してください。");return;}
+  const range=document.createRange(); range.selectNode(r);
+  const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+  try{document.execCommand("copy");alert("コピーしました。Excelやメールに貼り付けできます。");}catch(e){alert("コピーできませんでした。");}
+  sel.removeAllRanges();
+}
+function resetAll(){ if(confirm("入力を初期値に戻しますか？")){loadDefault();renderInputs();document.getElementById("result").innerHTML="";} }
+
+/* 起動 */
+loadDefault(); renderInputs(); generate();
+</script>
+</body>
+</html>
