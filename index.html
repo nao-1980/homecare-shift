@@ -64,6 +64,27 @@
   .pm-sym{display:inline-block;min-width:24px;text-align:center;font-weight:700;border:1px solid #ddd;border-radius:5px;padding:1px 0;}
   .pm-lab{color:#333;}
   @media print{.pickmenu{display:none !important;}}
+  /* 横スクロール対応のテーブル枠 */
+  .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .tscroll table{min-width:560px;}
+  .tscroll td.rowhdr{position:sticky;left:0;z-index:2;background:var(--grey);box-shadow:1px 0 0 var(--line);}
+  .mhint{display:none;font-size:11.5px;color:#2E5496;margin:0 0 8px;}
+  /* スマホ向け調整 */
+  @media (max-width:640px){
+    header{padding:13px 16px;}
+    header h1{font-size:16.5px;}
+    header p{font-size:11.5px;}
+    .wrap{padding:11px;}
+    .card{padding:12px 13px;}
+    th,td{padding:8px 7px;font-size:13.5px;}
+    .av{min-width:40px;}
+    .mhint{display:block;}
+    .controls{flex-direction:column;align-items:stretch;}
+    .controls button{width:100%;padding:13px 16px;font-size:15px;}
+    .addrow{flex-direction:column;align-items:stretch;}
+    .addrow input{width:100%;}
+    .addrow button{width:100%;}
+  }
 </style>
 </head>
 <body>
@@ -75,14 +96,16 @@
 
   <div class="card no-print">
     <h2>① 医師スケジュール</h2>
-    <p class="hint">セルをクリックすると選択メニューが開きます（○=稼働 / ×=休）。</p>
-    <table id="docTbl"></table>
+    <p class="hint">セルをタップすると選択メニューが開きます（○=稼働 / ×=休）。</p>
+    <p class="mhint">← 表は横にスクロールできます →</p>
+    <div class="tscroll"><table id="docTbl"></table></div>
   </div>
 
   <div class="card no-print">
     <h2>② 看護師</h2>
-    <p class="hint">セルをクリックすると選択メニューが開きます（○=稼働 / ×=休 / △=内勤）。PAで始まる名前はアシスタント扱い。</p>
-    <table id="nurTbl"></table>
+    <p class="hint">セルをタップすると選択メニューが開きます（○=稼働 / ×=休 / △=内勤）。PAで始まる名前はアシスタント扱い。</p>
+    <p class="mhint">← 表は横にスクロールできます →</p>
+    <div class="tscroll"><table id="nurTbl"></table></div>
     <div class="addrow">
       <input id="newNur" placeholder="看護師名（PA…でアシ）" style="padding:6px;border:1px solid #ccc;border-radius:6px;">
       <button class="sec" onclick="addNurse()">＋ 追加</button>
@@ -298,7 +321,7 @@ function generate(){
   const ROWS=Math.max(MAX,...R.schedule.map((p,di)=>p.length+STANDBY[di].length+INHOUSE[di].length));
   let html="";
   for(let wk=0; wk<NWK; wk++){
-    html+=`<div class="card"><div class="wk-title">${wk+1}週目</div><table>`;
+    html+=`<div class="card"><div class="wk-title">${wk+1}週目</div><div class="tscroll"><table>`;
     html+="<thead><tr><th rowspan='2'>車</th>"+WD.map((d,i)=>`<th colspan='2' class='${i<4?"daysep":""}'>${d}曜</th>`).join("")+"</tr><tr>";
     for(let i=0;i<5;i++){ html+=`<th>医師</th><th class='${i<4?"daysep":""}'>看護師</th>`; }
     html+="</tr></thead><tbody>";
@@ -327,7 +350,7 @@ function generate(){
       }
       html+="</tr>";
     }
-    html+="</tbody></table><div class='legend'>背景：青=医師 / 緑=常勤看護師 / 紫=PA / —=看護師不足 / 待機=出勤可だが乗車なし / 内勤=△指定で訪問車に乗らず内勤（人手不足のX車のみ応援可）</div></div>";
+    html+="</tbody></table></div><div class='legend'>背景：青=医師 / 緑=常勤看護師 / 紫=PA / —=看護師不足 / 待機=出勤可だが乗車なし / 内勤=△指定で訪問車に乗らず内勤（人手不足のX車のみ応援可）</div></div>";
   }
 
   // 検証
