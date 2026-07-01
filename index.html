@@ -35,6 +35,8 @@
   .sec:hover{background:#f0f7f0;}
   .cloud{background:var(--blue);color:#fff;font-weight:700;}
   .cloud:hover{background:#24477f;}
+  .adminlink{font-size:12.5px;color:#8a8f98;text-decoration:none;border-bottom:1px dotted #b6bac2;}
+  .adminlink:hover{color:var(--blue);border-bottom-color:var(--blue);}
   .cstatus{font-size:12.5px;color:#667085;align-self:center;}
   .cstatus.err{color:var(--red);}
   .cstatus.ok{color:var(--green);}
@@ -129,8 +131,8 @@
     </div>
   </div>
 
-  <!-- ③ 詳細ルール：UIは非表示。NGペア・PA優先は初期データ(DEFAULT)として裏で反映済み -->
-  <div class="card no-print" style="display:none">
+  <!-- ③ 詳細ルール：管理モードのときだけ表示。NGペア・PA優先は初期データ(DEFAULT)として裏で反映済み -->
+  <div id="rulesCard" class="card no-print" style="display:none">
     <details>
       <summary>③ 詳細ルール（NGペア・PA優先）※必要な人だけ</summary>
       <div style="margin-top:10px;">
@@ -157,12 +159,24 @@
     <button class="gen" onclick="generate()">▶ シフトを生成</button>
     <button class="sec" onclick="window.print()">🖨 印刷 / PDF保存</button>
     <button class="sec" onclick="copyTable()">📋 表をコピー</button>
-    <button class="sec" onclick="resetAll()">↺ 初期値に戻す</button>
   </div>
   <div class="controls no-print" style="margin-top:8px">
     <button class="cloud" onclick="cloudSave()">☁ クラウドに保存（全員に共有）</button>
     <button class="sec" onclick="cloudLoad()">⟳ 最新を読み込み</button>
     <span id="cloudStatus" class="cstatus"></span>
+  </div>
+  <div class="no-print" style="margin-top:10px">
+    <a href="#admin" class="adminlink" onclick="openAdmin();return false;">🔒 管理ページ</a>
+  </div>
+
+  <div id="adminPanel" class="card no-print" style="display:none;border:1px solid #C9A227;background:#FFFDF5">
+    <h2>🔧 管理ページ（関係者のみ）</h2>
+    <p class="hint">PINで保護されています。ここでの「初期値に戻す」は自分の画面のみに作用し、共有データには影響しません。</p>
+    <div class="controls">
+      <button class="sec" onclick="resetAll()">↺ 初期値に戻す（この画面のみ）</button>
+      <button class="sec" onclick="lockAdmin()">🔒 管理モードを終了</button>
+    </div>
+    <p class="hint" style="margin-top:10px">下の「③ 詳細ルール（NGペア・PA優先）」と、生成結果の「検証」も管理モードのときだけ表示されます。</p>
   </div>
 
   <div id="result"></div>
@@ -415,13 +429,13 @@ function generate(){
   const unfilledN = R.unfilled.length;
   const pairRep = checkPairRepeat(R);
   const healthy = dup===0 && ngBad===0 && unfilledN===0;
-  html+=`<div class="card"><h2>検証</h2>`+
+  if(adminMode){ html+=`<div class="card"><h2>検証（管理モード）</h2>`+
     vrow("看護師の同日重複", dup===0, dup+"件")+
     vrow("NGペアの割当", ngBad===0, ngBad+"件")+
     vrow("看護師不足（医師居るが看護師欠）", unfilledN===0, unfilledN+"件")+
     vrow("週内で同じ医師×看護師の重複", pairRep===0, pairRep+"件"+(pairRep>0?"（人員・条件上やむを得ない分）":""))+
     `<div style="margin-top:12px;text-align:center"><span class="badge ${healthy?"ok":"warn"}">総合判定：${healthy?"健全":"要確認"}</span>`+
-    (R.soft.length?`<span class="legend" style="margin-left:10px">※希望休の充当 ${R.soft.length}件（人員不足時のみ）</span>`:"")+`</div></div>`;
+    (R.soft.length?`<span class="legend" style="margin-left:10px">※希望休の充当 ${R.soft.length}件（人員不足時のみ）</span>`:"")+`</div></div>`; }
 
   // 負荷バー
   const maxLoad=Math.max(1,...Object.values(R.nload));
@@ -518,10 +532,31 @@ async function cloudLoad(){
   }catch(e){ setCloud("読み込みに失敗しました："+e.message,"err"); return false; }
 }
 
+/* ===== 管理ページ（PIN保護）===== */
+let adminMode=false;
+const _AP="eXVtZTIwMjY="; // PIN(base64)
+function checkPin(p){ try{ return p===atob(_AP); }catch(e){ return false; } }
+function applyAdminVisibility(){
+  const ap=document.getElementById("adminPanel"); if(ap) ap.style.display=adminMode?"block":"none";
+  const rc=document.getElementById("rulesCard"); if(rc) rc.style.display=adminMode?"block":"none";
+  const al=document.querySelector(".adminlink"); if(al) al.style.display=adminMode?"none":"inline";
+}
+function openAdmin(){
+  if(adminMode){ document.getElementById("adminPanel").scrollIntoView({behavior:"smooth"}); return; }
+  const p=prompt("管理ページのPIN（合言葉）を入力してください");
+  if(p===null) return;
+  if(checkPin(p.trim())){ adminMode=true; applyAdminVisibility(); generate();
+    document.getElementById("adminPanel").scrollIntoView({behavior:"smooth",block:"start"}); }
+  else{ alert("PINが違います。"); }
+}
+function lockAdmin(){ adminMode=false; applyAdminVisibility(); generate();
+  if(location.hash) history.replaceState(null,"",location.pathname+location.search); }
+
 /* 起動 */
 async function start(){
-  initDates(); loadDefault(); renderDates(); renderInputs(); generate();
+  initDates(); loadDefault(); renderDates(); renderInputs(); applyAdminVisibility(); generate();
   await cloudLoad(); // 共有データがあれば反映
+  if(location.hash==="#admin") openAdmin();
 }
 start();
 </script>
