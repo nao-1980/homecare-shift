@@ -156,7 +156,7 @@
   </div>
 
   <div class="controls no-print">
-    <button class="gen" onclick="generate()">▶ シフトを生成</button>
+    <button class="gen" onclick="generate()">▶ シフトを作成</button>
     <button class="sec" onclick="window.print()">🖨 印刷 / PDF保存</button>
     <button class="sec" onclick="exportExcel()">⬇ Excelでダウンロード</button>
     <button class="sec" onclick="copyTable()">📋 表をコピー</button>
@@ -523,7 +523,7 @@ function exportExcel(){
 /* ===== ユーティリティ ===== */
 function copyTable(){
   const r=document.getElementById("result");
-  if(!r.innerHTML){alert("先に「シフトを生成」を押してください。");return;}
+  if(!r.innerHTML){alert("先に「シフトを作成」を押してください。");return;}
   const range=document.createRange(); range.selectNode(r);
   const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
   try{document.execCommand("copy");alert("コピーしました。Excelやメールに貼り付けできます。");}catch(e){alert("コピーできませんでした。");}
