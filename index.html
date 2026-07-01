@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>訪問診療 シフト生成ツール</title>
+<title>ゆめクリニック訪問診療シフト作成</title>
 <style>
   :root{--navy:#1F3864;--blue:#2E5496;--lblue:#D6E4F0;--grey:#F2F2F2;--green:#2E7D32;
         --greenbg:#E2EFDA;--purple:#E6E0F0;--orange:#FCE4D6;--red:#C00000;--line:#BFBFBF;}
@@ -99,7 +99,7 @@
 </head>
 <body>
 <header>
-  <h1>訪問診療 シフト生成ツール</h1>
+  <h1>ゆめクリニック訪問診療シフト作成</h1>
   <p>医師1＋看護師1 ／ 2週間ローテーション ／ マクロ不要・ブラウザだけで動作</p>
 </header>
 <div class="wrap">
@@ -158,6 +158,7 @@
   <div class="controls no-print">
     <button class="gen" onclick="generate()">▶ シフトを生成</button>
     <button class="sec" onclick="window.print()">🖨 印刷 / PDF保存</button>
+    <button class="sec" onclick="exportExcel()">⬇ Excelでダウンロード</button>
     <button class="sec" onclick="copyTable()">📋 表をコピー</button>
   </div>
   <div class="controls no-print" style="margin-top:8px">
@@ -182,6 +183,7 @@
   <div id="result"></div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* ===== 初期データ（Excel版と同一）===== */
 const WD=["月","火","水","木","金"];
@@ -478,6 +480,44 @@ function checkPairRepeat(R){
     for(const k in cnt) if(cnt[k]>1) extra+=cnt[k]-1;
   }
   return extra;
+}
+
+/* ===== Excel(.xlsx)ダウンロード ===== */
+function exportExcel(){
+  if(typeof XLSX==="undefined"){ alert("Excel出力の準備ができていません。通信環境をご確認のうえ、ページを再読み込みしてください。"); return; }
+  const R=solve();
+  const CARS="ABCDEFGHIJ".split("");
+  const STANDBY=R.schedule.map((pairs,di)=>{ const used=new Set(pairs.map(p=>p[1]).filter(Boolean)); return R.nurseNames.filter(n=>NUR[n].av[di]==="○"&&!used.has(n)); });
+  const INHOUSE=R.schedule.map((pairs,di)=>{ const used=new Set(pairs.map(p=>p[1]).filter(Boolean)); return R.nurseNames.filter(n=>NUR[n].av[di]==="△"&&!used.has(n)); });
+  const wb=XLSX.utils.book_new();
+  for(let wk=0; wk<NWK; wk++){
+    const ROWS=Math.max(0,...[0,1,2,3,4].map(wd=>{const di=wk*5+wd; return R.schedule[di].length+STANDBY[di].length+INHOUSE[di].length;}));
+    const header=["車"];
+    for(let wd=0; wd<5; wd++){ const dt=dayDate(wk,wd); const s=WD[wd]+(dt?`(${fmtMD(dt)})`:""); header.push(s+" 医師", s+" 看護師"); }
+    const aoa=[header];
+    for(let ci=0; ci<ROWS; ci++){
+      const row=[CARS[ci]];
+      for(let wd=0; wd<5; wd++){
+        const di=wk*5+wd, pairs=R.schedule[di];
+        if(ci<pairs.length){ const [doc,nur]=pairs[ci]; row.push(doc, nur||"—"); }
+        else if(ci-pairs.length<STANDBY[di].length){ row.push("待機", STANDBY[di][ci-pairs.length]); }
+        else if(ci-pairs.length-STANDBY[di].length<INHOUSE[di].length){ row.push("内勤", INHOUSE[di][ci-pairs.length-STANDBY[di].length]); }
+        else { row.push("",""); }
+      }
+      aoa.push(row);
+    }
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"]=[{wch:5}].concat(Array(10).fill({wch:9}));
+    XLSX.utils.book_append_sheet(wb, ws, (wk+1)+"週目");
+  }
+  const s2=[["看護師","区分","担当回数（2週間）"]];
+  for(const n of R.nurseNames) s2.push([n, NUR[n].pa?"PA":"常勤", R.nload[n]]);
+  const ws2=XLSX.utils.aoa_to_sheet(s2); ws2["!cols"]=[{wch:12},{wch:6},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, ws2, "担当回数");
+  let fn="ゆめクリニック訪問診療シフト";
+  const s=parseISO(WKSTART[0]), e=parseISO(WKSTART[1]);
+  if(s&&e) fn+="_"+fmtMD(s).replace("/","-")+"〜"+fmtMD(addDays(e,4)).replace("/","-");
+  XLSX.writeFile(wb, fn+".xlsx");
 }
 
 /* ===== ユーティリティ ===== */
