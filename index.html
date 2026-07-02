@@ -352,8 +352,17 @@ function solve(){
       if(elig.length===0){ assign[doc]=null; unfilled.push([di,doc]); continue; }
       const naik=n=>navail(n,di)==="△"?1:0;   // 内勤は最後尾
       const pc=n=>pairCnt[doc+"|"+n]||0;       // 今週この医師と既に組んだ回数
+      const isTreat=davail(doc,di)==="◎";      // 処置あり
       let pick;
-      if(PAPREF.includes(doc)){
+      if(isTreat){
+        // 処置ありの医師は常勤看護師を優先（PAはできる限り避ける）
+        elig.sort((a,b)=>{
+          const na=naik(a)-naik(b); if(na!==0)return na;
+          const pa=(paSet.has(a)?1:0)-(paSet.has(b)?1:0); if(pa!==0)return pa; // 常勤優先
+          const pr=pc(a)-pc(b); if(pr!==0)return pr;
+          return nload[a]-nload[b];
+        });
+      }else if(PAPREF.includes(doc)){
         elig.sort((a,b)=>{
           const na=naik(a)-naik(b); if(na!==0)return na;
           const pr=pc(a)-pc(b); if(pr!==0)return pr;   // ①週内の同ペア重複を最優先で回避
