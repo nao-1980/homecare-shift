@@ -219,7 +219,7 @@ function onDateChange(){
   // 2週目が空 or 1週目と同じ以前なら 1週目+7 に自動補正
   if(WKSTART[0] && (!WKSTART[1] || parseISO(WKSTART[1])<=parseISO(WKSTART[0])))
     WKSTART[1]=isoOf(addDays(parseISO(WKSTART[0]),7));
-  renderDates(); renderInputs(); document.getElementById("result").innerHTML="";
+  renderDates(); renderInputs(); generate(true);
 }
 function renderDates(){
   document.getElementById("wk1Start").value=WKSTART[0];
@@ -293,7 +293,7 @@ function openPick(ev,type,name,di){
   if(top+mh>window.innerHeight-8) top=r.top-mh-4;
   m.style.left=Math.max(8,left)+"px"; m.style.top=Math.max(8,top)+"px";
 }
-function pick(type,name,di,v){ if(type==="doc")DOC[name][di]=v; else NUR[name].av[di]=v; closePick(); renderInputs(); }
+function pick(type,name,di,v){ if(type==="doc")DOC[name][di]=v; else NUR[name].av[di]=v; closePick(); renderInputs(); generate(true); }
 function closePick(){ const m=document.getElementById("pickMenu"); if(m)m.style.display="none"; }
 document.addEventListener("click",e=>{ const m=document.getElementById("pickMenu");
   if(m&&m.style.display==="block"&&!m.contains(e.target)) closePick(); });
@@ -301,9 +301,9 @@ function addNurse(){
   const v=document.getElementById("newNur").value.trim();
   if(!v||NUR[v])return;
   NUR[v]={pa:v.startsWith("PA"),av:[0,1,2,3,4,5,6,7,8,9].map(_=> "○")};
-  document.getElementById("newNur").value=""; renderInputs();
+  document.getElementById("newNur").value=""; renderInputs(); generate(true);
 }
-function delNurse(n){ delete NUR[n]; renderInputs(); }
+function delNurse(n){ delete NUR[n]; renderInputs(); generate(true); }
 
 function renderRules(){
   const docNames=Object.keys(DOC), nurNames=Object.keys(NUR);
@@ -375,7 +375,7 @@ function solve(){
 }
 
 /* ===== 結果描画 ===== */
-function generate(){
+function generate(auto){
   const R=solve();
   const MAX=Math.max(...R.schedule.map(s=>s.length));
   const CARS="ABCDEFGHIJ".split("");
@@ -450,7 +450,7 @@ function generate(){
   html+=`</div>`;
 
   document.getElementById("result").innerHTML=html;
-  window.scrollTo({top:document.getElementById("result").offsetTop-10,behavior:"smooth"});
+  if(!auto) window.scrollTo({top:document.getElementById("result").offsetTop-10,behavior:"smooth"});
 }
 function vrow(label,ok,detail){
   return `<div class="vrow"><span>${label}</span><span><span class="badge ${ok?"ok":"warn"}">${ok?"OK":"要修正"}</span> <small style="color:#888">${detail}</small></span></div>`;
@@ -529,7 +529,7 @@ function copyTable(){
   try{document.execCommand("copy");alert("コピーしました。Excelやメールに貼り付けできます。");}catch(e){alert("コピーできませんでした。");}
   sel.removeAllRanges();
 }
-function resetAll(){ if(confirm("入力を初期値に戻しますか？")){loadDefault();renderInputs();document.getElementById("result").innerHTML="";} }
+function resetAll(){ if(confirm("入力を初期値に戻しますか？")){loadDefault();renderInputs();generate(true);} }
 
 /* ===== クラウド共有保存（jsonbin.io）===== */
 const STORE_ID="6a43ef5ada38895dfe170011";
@@ -565,7 +565,7 @@ async function cloudLoad(){
     if(!r.ok) throw new Error("HTTP "+r.status);
     const rec=(await r.json()).record;
     if(rec&&rec.state&&typeof rec.state==="object"&&rec.state.DOC){
-      applyState(rec.state); renderDates(); renderInputs(); generate();
+      applyState(rec.state); renderDates(); renderInputs(); generate(true);
       setCloud("✓ 共有データを表示中（最終保存："+(rec.state.savedAt?fmtDT(rec.state.savedAt):"不明")+"）","ok");
       return true;
     }else{ setCloud("共有データはまだありません（初期値を表示中）。編集して「クラウドに保存」を押すと共有されます。"); return false; }
@@ -594,7 +594,7 @@ function lockAdmin(){ adminMode=false; applyAdminVisibility(); generate();
 
 /* 起動 */
 async function start(){
-  initDates(); loadDefault(); renderDates(); renderInputs(); applyAdminVisibility(); generate();
+  initDates(); loadDefault(); renderDates(); renderInputs(); applyAdminVisibility(); generate(true);
   await cloudLoad(); // 共有データがあれば反映
   if(location.hash==="#admin") openAdmin();
 }
