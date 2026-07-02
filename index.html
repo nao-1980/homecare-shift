@@ -27,6 +27,8 @@
   .av.off{background:var(--orange);color:#999;}
   .av.kibo{background:#FFF2CC;color:#9a7b00;}
   .av.nai{background:var(--lblue);color:#2E5496;}
+  .av.chu{background:#FFE699;color:#7a5a00;}
+  td.doc.treat{background:#FFE699;}
   .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:4px;}
   button{font-family:inherit;font-size:14px;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;}
   .gen{background:var(--green);color:#fff;font-weight:700;}
@@ -115,7 +117,7 @@
 
   <div class="card no-print">
     <h2>① 医師スケジュール</h2>
-    <p class="hint">1週目・2週目それぞれ、セルをタップして設定します（○=稼働 / ×=休）。週ごとに別々に設定できます。</p>
+    <p class="hint">1週目・2週目それぞれ、セルをタップして設定します（○=稼働 / ◎=処置あり / ×=休）。週ごとに別々に設定できます。</p>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="docTbl"></table></div>
   </div>
@@ -245,7 +247,7 @@ function loadDefault(){
 /* ===== 入力UI ===== */
 const DOC_CYCLE={"○":"×","×":"○"};
 const NUR_CYCLE={"○":"×","×":"△","△":"○"};
-function cls(v){return v==="○"?"on":v==="×"?"off":v==="希"?"kibo":"nai";}
+function cls(v){return v==="○"?"on":v==="×"?"off":v==="◎"?"chu":v==="希"?"kibo":"nai";}
 
 function renderInputs(){
   // doctors（週別：1週目 月〜金 / 2週目 月〜金）
@@ -275,8 +277,8 @@ function renderInputs(){
 }
 function cycDoc(n,wd){ DOC[n][wd]=DOC_CYCLE[DOC[n][wd]]; renderInputs(); }
 function cycNur(n,di){ NUR[n].av[di]=NUR_CYCLE[NUR[n].av[di]]; renderInputs(); }
-const PICK_OPTS={doc:[["○","稼働"],["×","休"]],nur:[["○","稼働"],["×","休"],["△","内勤"]]};
-function pmStyle(v){return v==="○"?"background:#fff;color:#1a7a1a":v==="×"?"background:#FCE4D6;color:#b06":"background:#D6E4F0;color:#2E5496";}
+const PICK_OPTS={doc:[["○","稼働"],["◎","処置あり"],["×","休"]],nur:[["○","稼働"],["×","休"],["△","内勤"]]};
+function pmStyle(v){return v==="○"?"background:#fff;color:#1a7a1a":v==="×"?"background:#FCE4D6;color:#b06":v==="◎"?"background:#FFE699;color:#7a5a00":"background:#D6E4F0;color:#2E5496";}
 function openPick(ev,type,name,di){
   ev.stopPropagation();
   let m=document.getElementById("pickMenu");
@@ -331,7 +333,7 @@ function solve(){
   const schedule=[], unfilled=[], soft=[];
   for(let di=0; di<NDAY; di++){
     if(di%5===0) pairCnt={}; // 週の頭でリセット（1週間内の重複を抑制）
-    const docs=docLabels.filter(l=>davail(l,di)==="○");
+    const docs=docLabels.filter(l=>davail(l,di)==="○"||davail(l,di)==="◎");
     // 看護師が足りない時の充当優先：一般医師 ＞ 友佳子 ＞ X(内勤車)。PA優先は看護師の種類選びにのみ反映。
     const fillRank=d=>(({"友佳子":1,"X":2}[d]||0));
     const order=docs.slice().sort((a,b)=>fillRank(a)-fillRank(b));
@@ -404,7 +406,8 @@ function generate(auto){
         const sep=wd<4?"daysep":"";
         if(ci<pairs.length){
           const [doc,nur]=pairs[ci];
-          html+=`<td class="doc">${doc}</td>`;
+          const treat=davail(doc,di)==="◎";
+          html+=`<td class="doc${treat?" treat":""}">${doc}${treat?" ◎":""}</td>`;
           if(nur){const c=R.paSet.has(nur)?"nur-pa":"nur-jp"; html+=`<td class="${c} ${sep}">${nur}</td>`;}
           else html+=`<td class="nur-no ${sep}">—</td>`;
         }else if(ci-pairs.length < STANDBY[di].length){
@@ -421,7 +424,7 @@ function generate(auto){
       }
       html+="</tr>";
     }
-    html+="</tbody></table></div><div class='legend'>背景：青=医師 / 緑=常勤看護師 / 紫=PA / —=看護師不足 / 待機=出勤可だが乗車なし / 内勤=△指定で訪問車に乗らず内勤（人手不足のX車のみ応援可）</div></div>";
+    html+="</tbody></table></div><div class='legend'>◎=処置あり（黄色マーク）／ 背景：青=医師 / 緑=常勤看護師 / 紫=PA / —=看護師不足 / 待機=出勤可だが乗車なし / 内勤=△指定で訪問車に乗らず内勤（人手不足のX車のみ応援可）</div></div>";
   }
 
   // 検証
@@ -499,7 +502,7 @@ function exportExcel(){
       const row=[CARS[ci]];
       for(let wd=0; wd<5; wd++){
         const di=wk*5+wd, pairs=R.schedule[di];
-        if(ci<pairs.length){ const [doc,nur]=pairs[ci]; row.push(doc, nur||"—"); }
+        if(ci<pairs.length){ const [doc,nur]=pairs[ci]; row.push(doc+(davail(doc,di)==="◎"?" ◎":""), nur||"—"); }
         else if(ci-pairs.length<STANDBY[di].length){ row.push("待機", STANDBY[di][ci-pairs.length]); }
         else if(ci-pairs.length-STANDBY[di].length<INHOUSE[di].length){ row.push("内勤", INHOUSE[di][ci-pairs.length-STANDBY[di].length]); }
         else { row.push("",""); }
