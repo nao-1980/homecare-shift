@@ -336,7 +336,9 @@ function solve(){
     const docs=docLabels.filter(l=>davail(l,di)==="○"||davail(l,di)==="◎");
     // 看護師が足りない時の充当優先：一般医師 ＞ 友佳子 ＞ X(内勤車)。PA優先は看護師の種類選びにのみ反映。
     const fillRank=d=>(({"友佳子":1,"X":2}[d]||0));
-    const order=docs.slice().sort((a,b)=>fillRank(a)-fillRank(b));
+    // ◎処置ありの医師は看護師を優先確保（人手不足時に先に割り当てる）
+    const treatRank=d=>davail(d,di)==="◎"?0:1;
+    const order=docs.slice().sort((a,b)=>{ const t=treatRank(a)-treatRank(b); if(t!==0)return t; return fillRank(a)-fillRank(b); });
     const used=new Set(), assign={};
     for(const doc of order){
       // 内勤(△)は劣後：通常はXの空きのみ充当可、それ以外の医師には乗らない
