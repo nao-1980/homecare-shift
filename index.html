@@ -330,6 +330,7 @@ function solve(){
   const paSet=new Set(nurseNames.filter(n=>NUR[n].pa));
   const nload={}; nurseNames.forEach(n=>nload[n]=0);
   let pairCnt={}; // 週内の同ペア回数 `${doc}|${n}`（週ごとにリセット）
+  const wdPair={}; // 曜日別の同ペア回数 `${doc}|${曜日}|${n}`（週をまたいでリセットしない）
   const schedule=[], unfilled=[], soft=[];
   for(let di=0; di<NDAY; di++){
     if(di%5===0) pairCnt={}; // 週の頭でリセット（1週間内の重複を抑制）
@@ -352,6 +353,7 @@ function solve(){
       if(elig.length===0){ assign[doc]=null; unfilled.push([di,doc]); continue; }
       const naik=n=>navail(n,di)==="△"?1:0;   // 内勤は最後尾
       const pc=n=>pairCnt[doc+"|"+n]||0;       // 今週この医師と既に組んだ回数
+      const swd=n=>wdPair[doc+"|"+(di%5)+"|"+n]||0; // 同じ曜日で既にこの医師と組んだ回数
       const isTreat=davail(doc,di)==="◎";      // 処置あり
       let pick;
       if(isTreat){
@@ -359,26 +361,30 @@ function solve(){
         elig.sort((a,b)=>{
           const na=naik(a)-naik(b); if(na!==0)return na;
           const pa=(paSet.has(a)?1:0)-(paSet.has(b)?1:0); if(pa!==0)return pa; // 常勤優先
+          const sw=swd(a)-swd(b); if(sw!==0)return sw; // 同じ曜日の同ペア回避
           const pr=pc(a)-pc(b); if(pr!==0)return pr;
           return nload[a]-nload[b];
         });
       }else if(PAPREF.includes(doc)){
         elig.sort((a,b)=>{
           const na=naik(a)-naik(b); if(na!==0)return na;
-          const pr=pc(a)-pc(b); if(pr!==0)return pr;   // ①週内の同ペア重複を最優先で回避
-          const ea=paSet.has(a)?0:NURSE_BIAS;          // ②PA優先
+          const sw=swd(a)-swd(b); if(sw!==0)return sw; // ①同じ曜日の同ペア回避
+          const pr=pc(a)-pc(b); if(pr!==0)return pr;   // ②週内の同ペア重複を回避
+          const ea=paSet.has(a)?0:NURSE_BIAS;          // ③PA優先
           const eb=paSet.has(b)?0:NURSE_BIAS;
           if(ea!==eb)return ea-eb;
-          return nload[a]-nload[b];                    // ③負荷分散
+          return nload[a]-nload[b];                    // ④負荷分散
         });
       }else{
         elig.sort((a,b)=>{
           const na=naik(a)-naik(b); if(na!==0)return na;
-          const pr=pc(a)-pc(b); if(pr!==0)return pr;   // ①週内の同ペア重複を最優先で回避
-          return nload[a]-nload[b];                    // ②負荷分散
+          const sw=swd(a)-swd(b); if(sw!==0)return sw; // ①同じ曜日の同ペア回避
+          const pr=pc(a)-pc(b); if(pr!==0)return pr;   // ②週内の同ペア重複を回避
+          return nload[a]-nload[b];                    // ③負荷分散
         });
       }
       pick=elig[0]; pairCnt[doc+"|"+pick]=(pairCnt[doc+"|"+pick]||0)+1;
+      wdPair[doc+"|"+(di%5)+"|"+pick]=(wdPair[doc+"|"+(di%5)+"|"+pick]||0)+1;
       used.add(pick); nload[pick]++;
       assign[doc]=pick;
     }
@@ -444,12 +450,14 @@ function generate(auto){
   const ngBad = checkNG(R);
   const unfilledN = R.unfilled.length;
   const pairRep = checkPairRepeat(R);
+  const sameWd = checkSameWd(R);
   const healthy = dup===0 && ngBad===0 && unfilledN===0;
   if(adminMode){ html+=`<div class="card"><h2>検証（管理モード）</h2>`+
     vrow("看護師の同日重複", dup===0, dup+"件")+
     vrow("NGペアの割当", ngBad===0, ngBad+"件")+
     vrow("看護師不足（医師居るが看護師欠）", unfilledN===0, unfilledN+"件")+
     vrow("週内で同じ医師×看護師の重複", pairRep===0, pairRep+"件"+(pairRep>0?"（人員・条件上やむを得ない分）":""))+
+    vrow("同じ曜日で同じ医師×看護師の重複", sameWd===0, sameWd+"件"+(sameWd>0?"（人員・条件上やむを得ない分）":""))+
     `<div style="margin-top:12px;text-align:center"><span class="badge ${healthy?"ok":"warn"}">総合判定：${healthy?"健全":"要確認"}</span>`+
     (R.soft.length?`<span class="legend" style="margin-left:10px">※希望休の充当 ${R.soft.length}件（人員不足時のみ）</span>`:"")+`</div></div>`; }
 
@@ -489,6 +497,18 @@ function checkPairRepeat(R){
   for(let wk=0; wk<NWK; wk++){
     const cnt={};
     for(let wd=0; wd<5; wd++){
+      for(const [d,n] of R.schedule[wk*5+wd]){ if(n){ const k=d+"|"+n; cnt[k]=(cnt[k]||0)+1; } }
+    }
+    for(const k in cnt) if(cnt[k]>1) extra+=cnt[k]-1;
+  }
+  return extra;
+}
+// 同じ曜日（週をまたいで）に同じ医師×看護師が重複した「超過回数」の合計
+function checkSameWd(R){
+  let extra=0;
+  for(let wd=0; wd<5; wd++){
+    const cnt={};
+    for(let wk=0; wk<NWK; wk++){
       for(const [d,n] of R.schedule[wk*5+wd]){ if(n){ const k=d+"|"+n; cnt[k]=(cnt[k]||0)+1; } }
     }
     for(const k in cnt) if(cnt[k]>1) extra+=cnt[k]-1;
