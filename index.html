@@ -190,11 +190,11 @@
   </div>
   <div class="no-print" style="margin-top:10px;display:flex;gap:18px;flex-wrap:wrap">
     <a href="#admin" class="adminlink" onclick="openAdmin();return false;">🔒 管理ページ</a>
-    <a href="#admin2" class="adminlink adminlink2" onclick="openAdmin2();return false;">🔒 管理ページ2（ドライバー）</a>
+    <a href="#admin2" class="adminlink adminlink2" onclick="openAdmin2();return false;">🔒 管理ページ2</a>
   </div>
 
   <div id="admin2Panel" class="card no-print" style="display:none;border:1px solid #4472C4;background:#F5F9FF">
-    <h2>🚗 管理ページ2（ドライバー・関係者のみ）</h2>
+    <h2>🚗 管理ページ2（関係者のみ）</h2>
     <p class="hint">医師×ドライバーの「この組み合わせは避ける」NGペアを設定します。医師名のほか【物品庫チェック】【単独】の条件も選べます。【物品庫チェック】＝その医師の車にそのドライバーを付けない。【単独】＝そのドライバーは「単独」に設定できない（例：北岡は単独担当にしない）。</p>
     <div style="margin-top:6px">
       <b style="font-size:13px;">NGペア（この医師×ドライバーは組ませない）</b>
@@ -784,7 +784,7 @@ function applyAdmin2Visibility(){
 }
 function openAdmin2(){
   if(admin2Mode){ document.getElementById("admin2Panel").scrollIntoView({behavior:"smooth"}); return; }
-  const p=prompt("管理ページ2（ドライバー）のPIN（合言葉）を入力してください");
+  const p=prompt("管理ページ2のPIN（合言葉）を入力してください");
   if(p===null) return;
   if(checkPin2(p.trim())){ admin2Mode=true; renderNgDrv(); applyAdmin2Visibility();
     document.getElementById("admin2Panel").scrollIntoView({behavior:"smooth",block:"start"}); }
