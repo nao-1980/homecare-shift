@@ -28,7 +28,15 @@
   .av.kibo{background:#FFF2CC;color:#9a7b00;}
   .av.nai{background:var(--lblue);color:#2E5496;}
   .av.chu{background:#FFE699;color:#7a5a00;}
+  .av.keiyaku{background:#E2EFDA;color:#375623;}
   td.doc.treat{background:#FFE699;}
+  td.doc.contract{background:#E2EFDA;}
+  .av.drv1{background:#E2EFDA;color:#375623;} /* 契約 */
+  .av.drv2{background:#DDEBF7;color:#1F4E79;} /* チェック */
+  .av.drv3{background:#FFF2CC;color:#7f6000;} /* 準備 */
+  .av.drv4{background:#E6E0F0;color:#5b3d8a;} /* 単独 */
+  #drvTbl td.av{font-size:12px;min-width:52px;}
+  #docTbl td.av{font-size:12.5px;letter-spacing:-.5px;min-width:48px;}
   .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:4px;}
   button{font-family:inherit;font-size:14px;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;}
   .gen{background:var(--green);color:#fff;font-weight:700;}
@@ -52,6 +60,7 @@
   .nur-jp{background:var(--greenbg);}
   .nur-pa{background:var(--purple);}
   .nur-no{background:var(--orange);color:#b06;}
+  .drv-jp{background:#EAF1F8;color:#28527a;}
   .wk-title{background:var(--navy);color:#fff;text-align:left;padding:7px 10px;font-weight:700;border-radius:6px 6px 0 0;}
   .daysep{border-right:2px solid #7F7F7F !important;}
   .legend{font-size:12px;color:#595959;margin-top:8px;}
@@ -117,7 +126,7 @@
 
   <div class="card no-print">
     <h2>① 医師スケジュール</h2>
-    <p class="hint">1週目・2週目それぞれ、セルをタップして設定します（○=稼働 / ◎=処置あり / ×=休）。週ごとに別々に設定できます。</p>
+    <p class="hint">セルをタップして設定します。○=稼働 / ◎=処置あり / 契=契約 / ✓=物品庫チェック は<b>複数選択できます</b>（×=休のみ単独）。契約の日は結果表で【契】が付き、契約専任ドライバー（管理ページ2）だけが割り当てられます。物品庫チェックの日は、医師名の横に✓が付きます。</p>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="docTbl"></table></div>
   </div>
@@ -133,10 +142,21 @@
     </div>
   </div>
 
-  <!-- ③ 詳細ルール：管理モードのときだけ表示。NGペア・PA優先は初期データ(DEFAULT)として裏で反映済み -->
+  <div class="card no-print">
+    <h2>③ ドライバー</h2>
+    <p class="hint">セルをタップすると選択メニューが開きます（◯=稼働 / △=内勤 / 単独 / ×=休）。1週目・2週目それぞれ設定できます。◯の人が各車の運転担当に割り当てられ、△＝内勤・単独は結果表の下の「I 内勤 / J 単独」に表示されます。</p>
+    <p class="mhint">← 表は横にスクロールできます →</p>
+    <div class="tscroll"><table id="drvTbl"></table></div>
+    <div class="addrow">
+      <input id="newDrv" placeholder="ドライバー名" style="padding:6px;border:1px solid #ccc;border-radius:6px;">
+      <button class="sec" onclick="addDriver()">＋ 追加</button>
+    </div>
+  </div>
+
+  <!-- ④ 詳細ルール：管理モードのときだけ表示。NGペア・PA優先は初期データ(DEFAULT)として裏で反映済み -->
   <div id="rulesCard" class="card no-print" style="display:none">
     <details>
-      <summary>③ 詳細ルール（NGペア・PA優先）※必要な人だけ</summary>
+      <summary>④ 詳細ルール（NGペア・PA優先）※必要な人だけ</summary>
       <div style="margin-top:10px;">
         <b style="font-size:13px;">NGペア（この医師×看護師は組ませない）</b>
         <div class="ng-list" id="ngList"></div>
@@ -168,8 +188,34 @@
     <button class="sec" onclick="cloudLoad()">⟳ 最新を読み込み</button>
     <span id="cloudStatus" class="cstatus"></span>
   </div>
-  <div class="no-print" style="margin-top:10px">
+  <div class="no-print" style="margin-top:10px;display:flex;gap:18px;flex-wrap:wrap">
     <a href="#admin" class="adminlink" onclick="openAdmin();return false;">🔒 管理ページ</a>
+    <a href="#admin2" class="adminlink adminlink2" onclick="openAdmin2();return false;">🔒 管理ページ2（ドライバー）</a>
+  </div>
+
+  <div id="admin2Panel" class="card no-print" style="display:none;border:1px solid #4472C4;background:#F5F9FF">
+    <h2>🚗 管理ページ2（ドライバー・関係者のみ）</h2>
+    <p class="hint">医師×ドライバーの「この組み合わせは避ける」NGペアを設定します。医師名のほか【物品庫チェック】【単独】の条件も選べます。【物品庫チェック】＝その医師の車にそのドライバーを付けない。【単独】＝そのドライバーは「単独」に設定できない（例：北岡は単独担当にしない）。</p>
+    <div style="margin-top:6px">
+      <b style="font-size:13px;">NGペア（この医師×ドライバーは組ませない）</b>
+      <div class="ng-list" id="ngDrvList"></div>
+      <div class="addrow">
+        <select id="ngDrvDoc"></select>×<select id="ngDrvDrv"></select>
+        <button class="sec" onclick="addNgDrv()">＋ NG追加</button>
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <b style="font-size:13px;">契約専任ドライバー</b>
+      <span class="hint">（医師が「契約」の日は、この人たちだけが担当。この人たちは契約以外の車には付きません）</span>
+      <div class="ng-list" id="contractDrvList"></div>
+      <div class="addrow">
+        <select id="contractDrvSel"></select>
+        <button class="sec" onclick="addContractDrv()">＋ 追加</button>
+      </div>
+    </div>
+    <div class="controls" style="margin-top:12px">
+      <button class="sec" onclick="lockAdmin2()">🔒 管理モードを終了</button>
+    </div>
   </div>
 
   <div id="adminPanel" class="card no-print" style="display:none;border:1px solid #C9A227;background:#FFFDF5">
@@ -194,11 +240,14 @@ const DEFAULT={
   docDays:{ "寺田":[0,2,4],"鈴木":[0,1,2,3,4],"守屋":[0,2,3,4],"高宮":[0,1,2,3],"友佳子":[0,1,2,3,4],
             "牧野":[1,2,3,4],"土橋":[1],"飯島":[1],"田中":[1],"佐々木":[2],"長岡":[4],"X":[0,1,2,3,4] },
   nurses:[["佐藤",0],["武田",0],["笹沼",0],["大畑",0],["松田",0],["PA萩原",1],["PA佐藤",1]],
+  drivers:["佐々木","柳井","渡邊","奥津","八木澤","岩﨑","中村","北岡"],
   navail:{"PA萩原|3":"△"},
   ng:[["鈴木","PA萩原"],["鈴木","PA佐藤"],["寺田","武田"],["牧野","笹沼"],["牧野","PA萩原"],["牧野","PA佐藤"]],
-  paPref:["友佳子"]
+  paPref:["友佳子"],
+  ngDrv:[["【物品庫チェック】","北岡"],["【単独】","北岡"]], // 医師×ドライバーNG（【条件】も指定可。管理ページ2で編集）
+  contractDrv:["佐々木","柳井","中村"] // 契約の日に優先で付けるドライバー（管理ページ2で変更可）
 };
-let DOC={}, NUR={}, NAV={}, NG=[], PAPREF=[];
+let DOC={}, NUR={}, DRV={}, NAV={}, NG=[], PAPREF=[], NGDRV=[], CONTRACTDRV=[];
 let WKSTART=["",""]; // 各週の月曜日(ISO yyyy-mm-dd)
 
 /* ===== 日付ユーティリティ ===== */
@@ -241,13 +290,17 @@ function loadDefault(){
       DEFAULT.navail[nm+"|"+di] ?? DEFAULT.navail[nm+"|"+(di%5)] ?? "○");
     NUR[nm]={pa:!!pa, av};
   }
-  NG=clone(DEFAULT.ng); PAPREF=clone(DEFAULT.paPref);
+  DRV={}; // name -> {av:[10]}  ドライバー（◯/契約/チェック/準備/単独/×）
+  for(const nm of DEFAULT.drivers){ DRV[nm]={av:[0,1,2,3,4,5,6,7,8,9].map(_=> "◯")}; }
+  NG=clone(DEFAULT.ng); PAPREF=clone(DEFAULT.paPref); NGDRV=clone(DEFAULT.ngDrv||[]); CONTRACTDRV=clone(DEFAULT.contractDrv||[]);
 }
 
 /* ===== 入力UI ===== */
 const DOC_CYCLE={"○":"×","×":"○"};
 const NUR_CYCLE={"○":"×","×":"△","△":"○"};
-function cls(v){return v==="○"?"on":v==="×"?"off":v==="◎"?"chu":v==="希"?"kibo":"nai";}
+function cls(v){return v==="○"?"on":v==="×"?"off":v==="◎"?"chu":v==="契約"?"keiyaku":v==="希"?"kibo":"nai";}
+function dcls(v){return ({"◯":"on","△":"nai","単独":"drv4","×":"off"})[v]||"on";}
+function docCellClass(v){ if(v==="×"||!v)return "off"; if(v.indexOf("◎")>=0)return "chu"; if(v.indexOf("契")>=0)return "keiyaku"; return "on"; }
 
 function renderInputs(){
   // doctors（週別：1週目 月〜金 / 2週目 月〜金）
@@ -258,7 +311,7 @@ function renderInputs(){
   const docOrder=Object.keys(DOC).sort((a,b)=>(({"友佳子":1,"X":2}[a]||0))-(({"友佳子":1,"X":2}[b]||0)));
   for(const n of docOrder){
     h+=`<tr><td class="rowhdr">${n}</td>`;
-    DOC[n].forEach((v,di)=>{ const sep=(di===4)?"daysep":""; h+=`<td class="av ${cls(v)} ${sep}" onclick="openPick(event,'doc','${n}',${di})">${v}</td>`; });
+    DOC[n].forEach((v,di)=>{ const sep=(di===4)?"daysep":""; h+=`<td class="av ${docCellClass(v)} ${sep}" onclick="openPick(event,'doc','${n}',${di})">${v}</td>`; });
     h+="</tr>";
   }
   document.getElementById("docTbl").innerHTML=h+"</tbody>";
@@ -273,20 +326,44 @@ function renderInputs(){
     g+=`<td class="no-print"><span style="cursor:pointer;color:#c00;font-weight:700;" onclick="delNurse('${n}')">×</span></td></tr>`;
   }
   document.getElementById("nurTbl").innerHTML=g+"</tbody>";
-  renderRules();
+  // drivers（週別：1週目 月〜金 / 2週目 月〜金）
+  let dv="<thead><tr><th rowspan='2'>ドライバー</th>"+
+    `<th colspan='5' class='daysep'>${weekTitle(0)}</th><th colspan='5'>${weekTitle(1)}</th><th rowspan='2'></th></tr><tr>`+
+    [0,1].map(wk=>WD.map((d,i)=>`<th class='${(wk===0&&i===4)?"daysep":""}'>${dayLabel(wk,i)}</th>`).join("")).join("")+
+    "</tr></thead><tbody>";
+  for(const n in DRV){
+    dv+=`<tr><td class="rowhdr">${n}</td>`;
+    DRV[n].av.forEach((v,di)=>{ const sep=(di===4)?"daysep":""; dv+=`<td class="av ${dcls(v)} ${sep}" onclick="openPick(event,'drv','${n}',${di})">${v}</td>`; });
+    dv+=`<td class="no-print"><span style="cursor:pointer;color:#c00;font-weight:700;" onclick="delDriver('${n}')">×</span></td></tr>`;
+  }
+  document.getElementById("drvTbl").innerHTML=dv+"</tbody>";
+  renderRules(); renderNgDrv(); renderContractDrv();
 }
+function addDriver(){
+  const v=document.getElementById("newDrv").value.trim();
+  if(!v||DRV[v])return;
+  DRV[v]={av:[0,1,2,3,4,5,6,7,8,9].map(_=> "◯")};
+  document.getElementById("newDrv").value=""; renderInputs();
+}
+function delDriver(n){ delete DRV[n]; renderInputs(); }
 function cycDoc(n,wd){ DOC[n][wd]=DOC_CYCLE[DOC[n][wd]]; renderInputs(); }
 function cycNur(n,di){ NUR[n].av[di]=NUR_CYCLE[NUR[n].av[di]]; renderInputs(); }
-const PICK_OPTS={doc:[["○","稼働"],["◎","処置あり"],["×","休"]],nur:[["○","稼働"],["×","休"],["△","内勤"]]};
-function pmStyle(v){return v==="○"?"background:#fff;color:#1a7a1a":v==="×"?"background:#FCE4D6;color:#b06":v==="◎"?"background:#FFE699;color:#7a5a00":"background:#D6E4F0;color:#2E5496";}
+const PICK_OPTS={doc:[["○","稼働"],["◎","処置あり"],["契約","契約"],["×","休"]],nur:[["○","稼働"],["×","休"],["△","内勤"]],
+  drv:[["◯","稼働"],["△","内勤"],["単独","単独"],["×","休"]]};
+function pmStyle(v){return (v==="○"||v==="◯")?"background:#fff;color:#1a7a1a":v==="×"?"background:#FCE4D6;color:#b06":v==="◎"?"background:#FFE699;color:#7a5a00":v==="契約"?"background:#E2EFDA;color:#375623":v==="チェック"?"background:#DDEBF7;color:#1F4E79":v==="準備"?"background:#FFF2CC;color:#7f6000":v==="単独"?"background:#E6E0F0;color:#5b3d8a":"background:#D6E4F0;color:#2E5496";}
 function openPick(ev,type,name,di){
   ev.stopPropagation();
   let m=document.getElementById("pickMenu");
   if(!m){m=document.createElement("div");m.id="pickMenu";m.className="pickmenu";document.body.appendChild(m);}
-  const cur=type==="doc"?DOC[name][di]:NUR[name].av[di];
-  m.innerHTML=`<div class="pm-h">${name}</div>`+PICK_OPTS[type].map(([v,lab])=>
-    `<div class="pm-opt ${v===cur?"sel":""}" onclick="pick('${type}','${name}',${di},'${v}')">`+
-    `<span class="pm-sym" style="${pmStyle(v)}">${v}</span><span class="pm-lab">${lab}</span></div>`).join("");
+  if(type==="doc"){ renderDocMenu(m,name,di); }
+  else {
+    const cur=type==="drv"?DRV[name].av[di]:NUR[name].av[di];
+    let optsList=PICK_OPTS[type];
+    if(type==="drv" && NGDRV.some(p=>p[0]==="【単独】"&&p[1]===name)) optsList=optsList.filter(([v])=>v!=="単独"); // 単独禁止のドライバー
+    m.innerHTML=`<div class="pm-h">${name}</div>`+optsList.map(([v,lab])=>
+      `<div class="pm-opt ${v===cur?"sel":""}" onclick="pick('${type}','${name}',${di},'${v}')">`+
+      `<span class="pm-sym" style="${pmStyle(v)}">${v}</span><span class="pm-lab">${lab}</span></div>`).join("");
+  }
   m.style.display="block";
   const r=ev.target.getBoundingClientRect();
   const mw=m.offsetWidth||140, mh=m.offsetHeight||120;
@@ -295,7 +372,29 @@ function openPick(ev,type,name,di){
   if(top+mh>window.innerHeight-8) top=r.top-mh-4;
   m.style.left=Math.max(8,left)+"px"; m.style.top=Math.max(8,top)+"px";
 }
-function pick(type,name,di,v){ if(type==="doc")DOC[name][di]=v; else NUR[name].av[di]=v; closePick(); renderInputs(); generate(true); }
+function pick(type,name,di,v){ if(type==="doc")DOC[name][di]=v; else if(type==="drv")DRV[name].av[di]=v; else NUR[name].av[di]=v; closePick(); renderInputs(); generate(true); }
+/* 医師は複数選択（休以外は組合せ可）*/
+function renderDocMenu(m,name,di){
+  const v=DOC[name][di];
+  const opts=[["○","稼働"],["◎","処置あり"],["契","契約"],["✓","物品庫チェック"]];
+  let h=`<div class="pm-h">${name}（複数選択可・休以外）</div>`;
+  h+=opts.map(([t,lab])=>{ const on=(v!=="×"&&v.indexOf(t)>=0);
+    return `<div class="pm-opt ${on?"sel":""}" onclick="event.stopPropagation();toggleDoc('${name}',${di},'${t}')">`+
+      `<span class="pm-sym" style="${pmStyle(t==="契"?"契約":t)}">${on?"☑":"☐"}</span><span class="pm-lab">${t} ${lab}</span></div>`; }).join("");
+  h+=`<div class="pm-opt ${v==="×"?"sel":""}" onclick="event.stopPropagation();toggleDoc('${name}',${di},'×')"><span class="pm-sym" style="background:#FCE4D6;color:#b06">×</span><span class="pm-lab">× 休（選ぶと閉じます）</span></div>`;
+  h+=`<div class="pm-opt" style="justify-content:center;background:#2E7D32;color:#fff;font-weight:700;margin-top:4px" onclick="event.stopPropagation();closePick()">選択を確定して閉じる</div>`;
+  m.innerHTML=h;
+}
+function toggleDoc(name,di,tok){
+  if(tok==="×"){ DOC[name][di]="×"; closePick(); renderInputs(); generate(true); return; }
+  const order=["○","◎","契","✓"];
+  const v=DOC[name][di];
+  const set=new Set((v==="×"?"":v).split("").filter(Boolean));
+  if(set.has(tok)) set.delete(tok); else set.add(tok);
+  DOC[name][di]= order.filter(t=>set.has(t)).join("") || "×";
+  const m=document.getElementById("pickMenu"); if(m) renderDocMenu(m,name,di);
+  renderInputs(); generate(true);
+}
 function closePick(){ const m=document.getElementById("pickMenu"); if(m)m.style.display="none"; }
 document.addEventListener("click",e=>{ const m=document.getElementById("pickMenu");
   if(m&&m.style.display==="block"&&!m.contains(e.target)) closePick(); });
@@ -321,9 +420,14 @@ function addNG(){const d=ngDoc.value,n=ngNur.value;if(d&&n&&!NG.some(p=>p[0]==d&
 function addPA(){const d=paDoc.value;if(d&&!PAPREF.includes(d)){PAPREF.push(d);renderRules();}}
 
 /* ===== 割当エンジン（build2.py と同一ロジック）===== */
-function davail(name,di){ return DOC[name][di]; }         // 週別 ○ / ×（di:0-9）
+function davail(name,di){ return DOC[name][di]; }         // 週別（複数可の文字列。○◎契✓ の組合せ、または ×）
+function dHas(v,t){ return typeof v==="string" && v!=="×" && v.indexOf(t)>=0; }
+function docHas(name,di,t){ return dHas(davail(name,di),t); }
+function docWorks(name,di){ return docHas(name,di,"○")||docHas(name,di,"◎")||docHas(name,di,"契"); } // 訪問する（車が要る）
 function navail(name,di){ return NUR[name].av[di]; }      // 週別 ○ / × / 希 / △（di:0-9）
 function isNG(doc,nur){ return NG.some(p=>p[0]===doc&&p[1]===nur); }
+function isNGDrv(doc,drv){ return NGDRV.some(p=>p[0]===doc&&p[1]===drv); }
+function dravail(name,di){ return DRV[name]?DRV[name].av[di]:"×"; } // 週別 ◯/△/×
 
 function solve(){
   const docLabels=Object.keys(DOC), nurseNames=Object.keys(NUR);
@@ -332,13 +436,17 @@ function solve(){
   let pairCnt={}; // 週内の同ペア回数 `${doc}|${n}`（週ごとにリセット）
   const wdPair={}; // 曜日別の同ペア回数 `${doc}|${曜日}|${n}`（週をまたいでリセットしない）
   const schedule=[], unfilled=[], soft=[];
+  // ドライバー割当用
+  const dload={}; Object.keys(DRV).forEach(n=>dload[n]=0);
+  let dPairCnt={}; const dWdPair={}; const dschedule=[];
   for(let di=0; di<NDAY; di++){
     if(di%5===0) pairCnt={}; // 週の頭でリセット（1週間内の重複を抑制）
-    const docs=docLabels.filter(l=>davail(l,di)==="○"||davail(l,di)==="◎");
+    if(di%5===0) dPairCnt={};
+    const docs=docLabels.filter(l=>docWorks(l,di));
     // 看護師が足りない時の充当優先：一般医師 ＞ 友佳子 ＞ X(内勤車)。PA優先は看護師の種類選びにのみ反映。
     const fillRank=d=>(({"友佳子":1,"X":2}[d]||0));
     // ◎処置ありの医師は看護師を優先確保（人手不足時に先に割り当てる）
-    const treatRank=d=>davail(d,di)==="◎"?0:1;
+    const treatRank=d=>docHas(d,di,"◎")?0:1;
     const order=docs.slice().sort((a,b)=>{ const t=treatRank(a)-treatRank(b); if(t!==0)return t; return fillRank(a)-fillRank(b); });
     const used=new Set(), assign={};
     for(const doc of order){
@@ -354,7 +462,7 @@ function solve(){
       const naik=n=>navail(n,di)==="△"?1:0;   // 内勤は最後尾
       const pc=n=>pairCnt[doc+"|"+n]||0;       // 今週この医師と既に組んだ回数
       const swd=n=>wdPair[doc+"|"+(di%5)+"|"+n]||0; // 同じ曜日で既にこの医師と組んだ回数
-      const isTreat=davail(doc,di)==="◎";      // 処置あり
+      const isTreat=docHas(doc,di,"◎");      // 処置あり
       let pick;
       if(isTreat){
         // 処置ありの医師は常勤看護師を優先（PAはできる限り避ける）
@@ -388,9 +496,32 @@ function solve(){
       used.add(pick); nload[pick]++;
       assign[doc]=pick;
     }
-    schedule.push(docs.slice().sort((a,b)=>(({"友佳子":1,"X":2}[a]||0))-(({"友佳子":1,"X":2}[b]||0))).map(d=>[d,assign[d]]));
+    const daySorted=docs.slice().sort((a,b)=>(({"友佳子":1,"X":2}[a]||0))-(({"友佳子":1,"X":2}[b]||0))).map(d=>[d,assign[d]]);
+    schedule.push(daySorted);
+    // ===== ドライバー割当（◯のみ・医師×ドライバーNG回避・負荷/曜日/週内で分散）=====
+    const usedDrv=new Set(), dayDrivers=[];
+    const availDrv=Object.keys(DRV).filter(n=>dravail(n,di)==="◯");
+    for(const [doc,nur] of daySorted){
+      const isContract=docHas(doc,di,"契"); // 契約の日
+      let elig=availDrv.filter(dn=>{
+        if(usedDrv.has(dn)||isNGDrv(doc,dn)) return false;
+        if(docHas(doc,di,"✓") && NGDRV.some(p=>p[0]==="【物品庫チェック】"&&p[1]===dn)) return false; // 物品庫チェックの日は付けない
+        if(isContract){ if(!CONTRACTDRV.includes(dn)) return false; } // 契約の車は契約専任ドライバーのみ
+        else if(CONTRACTDRV.includes(dn)) return false;               // 契約専任ドライバーは契約以外の車に付けない
+        return true;
+      });
+      if(elig.length===0){ dayDrivers.push(null); continue; }
+      const dswd=dn=>dWdPair[doc+"|"+(di%5)+"|"+dn]||0;
+      const dpc=dn=>dPairCnt[doc+"|"+dn]||0;
+      elig.sort((a,b)=>{ const sw=dswd(a)-dswd(b); if(sw!==0)return sw; const p=dpc(a)-dpc(b); if(p!==0)return p; return dload[a]-dload[b]; });
+      const pk=elig[0]; usedDrv.add(pk); dload[pk]++;
+      dPairCnt[doc+"|"+pk]=(dPairCnt[doc+"|"+pk]||0)+1;
+      dWdPair[doc+"|"+(di%5)+"|"+pk]=(dWdPair[doc+"|"+(di%5)+"|"+pk]||0)+1;
+      dayDrivers.push(pk);
+    }
+    dschedule.push(dayDrivers);
   }
-  return {schedule,unfilled,soft,nload,nurseNames,paSet};
+  return {schedule,dschedule,unfilled,soft,nload,dload,nurseNames,paSet};
 }
 
 /* ===== 結果描画 ===== */
@@ -412,8 +543,8 @@ function generate(auto){
   let html="";
   for(let wk=0; wk<NWK; wk++){
     html+=`<div class="card"><div class="wk-title">${weekTitle(wk)}</div><div class="tscroll"><table>`;
-    html+="<thead><tr><th rowspan='2'>車</th>"+WD.map((d,i)=>`<th colspan='2' class='${i<4?"daysep":""}'>${dayLabel(wk,i)}</th>`).join("")+"</tr><tr>";
-    for(let i=0;i<5;i++){ html+=`<th>医師</th><th class='${i<4?"daysep":""}'>看護師</th>`; }
+    html+="<thead><tr><th rowspan='2'>車</th>"+WD.map((d,i)=>`<th colspan='3' class='${i<4?"daysep":""}'>${dayLabel(wk,i)}</th>`).join("")+"</tr><tr>";
+    for(let i=0;i<5;i++){ html+=`<th>医師</th><th>看護師</th><th class='${i<4?"daysep":""}'>ドライバー</th>`; }
     html+="</tr></thead><tbody>";
     for(let ci=0; ci<ROWS; ci++){
       html+=`<tr><td class="rowhdr" style="text-align:center">${CARS[ci]}</td>`;
@@ -423,25 +554,35 @@ function generate(auto){
         const sep=wd<4?"daysep":"";
         if(ci<pairs.length){
           const [doc,nur]=pairs[ci];
-          const treat=davail(doc,di)==="◎";
-          html+=`<td class="doc${treat?" treat":""}">${doc}${treat?" ◎":""}</td>`;
-          if(nur){const c=R.paSet.has(nur)?"nur-pa":"nur-jp"; html+=`<td class="${c} ${sep}">${nur}</td>`;}
-          else html+=`<td class="nur-no ${sep}">—</td>`;
+          const treat=docHas(doc,di,"◎"), contract=docHas(doc,di,"契"), chk=docHas(doc,di,"✓");
+          const marks=(treat?" ◎":"")+(contract?" 【契】":"")+(chk?" ✓":"");
+          html+=`<td class="doc${treat?" treat":contract?" contract":""}">${doc}${marks}</td>`;
+          if(nur){const c=R.paSet.has(nur)?"nur-pa":"nur-jp"; html+=`<td class="${c}">${nur}</td>`;}
+          else html+=`<td class="nur-no">—</td>`;
+          const drv=R.dschedule[di][ci];
+          html+=`<td class="${drv?"drv-jp":"nur-no"} ${sep}">${drv||"—"}</td>`;
         }else if(ci-pairs.length < STANDBY[di].length){
           const nur=STANDBY[di][ci-pairs.length];
           const c=R.paSet.has(nur)?"nur-pa":"nur-jp";
-          html+=`<td style="background:#FAFAFA;color:#888;font-size:12px">待機</td><td class="${c} ${sep}">${nur}</td>`;
+          html+=`<td style="background:#FAFAFA;color:#888;font-size:12px">待機</td><td class="${c}">${nur}</td><td class="${sep}" style="background:#FAFAFA"></td>`;
         }else if(ci-pairs.length-STANDBY[di].length < INHOUSE[di].length){
           const nur=INHOUSE[di][ci-pairs.length-STANDBY[di].length];
           const c=R.paSet.has(nur)?"nur-pa":"nur-jp";
-          html+=`<td style="background:var(--lblue);color:#2E5496;font-size:12px;font-weight:700">内勤</td><td class="${c} ${sep}">${nur}</td>`;
+          html+=`<td style="background:var(--lblue);color:#2E5496;font-size:12px;font-weight:700">内勤</td><td class="${c}">${nur}</td><td class="${sep}" style="background:#FAFAFA"></td>`;
         }else{
-          html+=`<td style="background:#FAFAFA"></td><td class="${sep}" style="background:#FAFAFA"></td>`;
+          html+=`<td style="background:#FAFAFA"></td><td style="background:#FAFAFA"></td><td class="${sep}" style="background:#FAFAFA"></td>`;
         }
       }
       html+="</tr>";
     }
-    html+="</tbody></table></div><div class='legend'>◎=処置あり（黄色マーク）／ 背景：青=医師 / 緑=常勤看護師 / 紫=PA / —=看護師不足 / 待機=出勤可だが乗車なし / 内勤=△指定で訪問車に乗らず内勤（人手不足のX車のみ応援可）</div></div>";
+    // I:内勤ドライバー / J:単独ドライバー（H行の下に追加）
+    const drvBy=(di,st)=>Object.keys(DRV).filter(n=>DRV[n].av[di]===st);
+    html+=`<tr><td class="rowhdr" style="text-align:center">I<br><small>内勤</small></td>`;
+    for(let wd=0;wd<5;wd++){ const di=wk*5+wd,sp=wd<4?"daysep":""; html+=`<td colspan="3" class="${sp}" style="text-align:left;padding-left:8px;background:var(--lblue);color:#2E5496">${drvBy(di,"△").join("、")||"—"}</td>`; }
+    html+=`</tr><tr><td class="rowhdr" style="text-align:center">J<br><small>単独</small></td>`;
+    for(let wd=0;wd<5;wd++){ const di=wk*5+wd,sp=wd<4?"daysep":""; html+=`<td colspan="3" class="${sp}" style="text-align:left;padding-left:8px;background:#E6E0F0;color:#5b3d8a">${drvBy(di,"単独").join("、")||"—"}</td>`; }
+    html+=`</tr>`;
+    html+="</tbody></table></div><div class='legend'>◎=処置あり ／ 【契】=契約 ／ ✓=物品庫チェック（医師名に表示）／ 3列目=ドライバー ／ I=内勤・J=単独（ドライバー）／ 背景：青=医師 / 緑=常勤看護師 / 紫=PA / —=看護師不足 / 待機=出勤可だが乗車なし / 内勤=△指定で訪問車に乗らず内勤（人手不足のX車のみ応援可）</div></div>";
   }
 
   // 検証
@@ -527,21 +668,25 @@ function exportExcel(){
   for(let wk=0; wk<NWK; wk++){
     const ROWS=Math.max(0,...[0,1,2,3,4].map(wd=>{const di=wk*5+wd; return R.schedule[di].length+STANDBY[di].length+INHOUSE[di].length;}));
     const header=["車"];
-    for(let wd=0; wd<5; wd++){ const dt=dayDate(wk,wd); const s=WD[wd]+(dt?`(${fmtMD(dt)})`:""); header.push(s+" 医師", s+" 看護師"); }
+    for(let wd=0; wd<5; wd++){ const dt=dayDate(wk,wd); const s=WD[wd]+(dt?`(${fmtMD(dt)})`:""); header.push(s+" 医師", s+" 看護師", s+" ドライバー"); }
     const aoa=[header];
     for(let ci=0; ci<ROWS; ci++){
       const row=[CARS[ci]];
       for(let wd=0; wd<5; wd++){
         const di=wk*5+wd, pairs=R.schedule[di];
-        if(ci<pairs.length){ const [doc,nur]=pairs[ci]; row.push(doc+(davail(doc,di)==="◎"?" ◎":""), nur||"—"); }
-        else if(ci-pairs.length<STANDBY[di].length){ row.push("待機", STANDBY[di][ci-pairs.length]); }
-        else if(ci-pairs.length-STANDBY[di].length<INHOUSE[di].length){ row.push("内勤", INHOUSE[di][ci-pairs.length-STANDBY[di].length]); }
-        else { row.push("",""); }
+        if(ci<pairs.length){ const [doc,nur]=pairs[ci]; row.push(doc+(docHas(doc,di,"◎")?" ◎":"")+(docHas(doc,di,"契")?" 契":"")+(docHas(doc,di,"✓")?" ✓":""), nur||"—", R.dschedule[di][ci]||"—"); }
+        else if(ci-pairs.length<STANDBY[di].length){ row.push("待機", STANDBY[di][ci-pairs.length], ""); }
+        else if(ci-pairs.length-STANDBY[di].length<INHOUSE[di].length){ row.push("内勤", INHOUSE[di][ci-pairs.length-STANDBY[di].length], ""); }
+        else { row.push("","",""); }
       }
       aoa.push(row);
     }
+    // I:内勤 / J:単独（ドライバー）
+    const drvByX=(di,st)=>Object.keys(DRV).filter(n=>DRV[n].av[di]===st).join("、");
+    const rowI=["I 内勤"]; for(let wd=0;wd<5;wd++){ const di=wk*5+wd; rowI.push("","",drvByX(di,"△")); } aoa.push(rowI);
+    const rowJ=["J 単独"]; for(let wd=0;wd<5;wd++){ const di=wk*5+wd; rowJ.push("","",drvByX(di,"単独")); } aoa.push(rowJ);
     const ws=XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"]=[{wch:5}].concat(Array(10).fill({wch:9}));
+    ws["!cols"]=[{wch:5}].concat(Array(15).fill({wch:9}));
     XLSX.utils.book_append_sheet(wb, ws, (wk+1)+"週目");
   }
   const s2=[["看護師","区分","担当回数（2週間）"]];
@@ -572,14 +717,17 @@ const STORE_URL="https://api.jsonbin.io/v3/b/"+STORE_ID;
 function setCloud(msg,kind){ const e=document.getElementById("cloudStatus"); if(!e)return;
   e.textContent=msg; e.className="cstatus"+(kind?(" "+kind):""); }
 function fmtDT(iso){ try{return new Date(iso).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});}catch(e){return iso;} }
-function gatherState(){ return {WKSTART:WKSTART.slice(), DOC:clone(DOC), NUR:clone(NUR), NG:clone(NG), PAPREF:clone(PAPREF), savedAt:new Date().toISOString()}; }
+function gatherState(){ return {WKSTART:WKSTART.slice(), DOC:clone(DOC), NUR:clone(NUR), DRV:clone(DRV), NG:clone(NG), PAPREF:clone(PAPREF), NGDRV:clone(NGDRV), CONTRACTDRV:clone(CONTRACTDRV), savedAt:new Date().toISOString()}; }
 function applyState(s){
   if(!s||typeof s!=="object") return false;
   if(Array.isArray(s.WKSTART)&&s.WKSTART.length===2) WKSTART=s.WKSTART.slice();
   if(s.DOC&&typeof s.DOC==="object") DOC=s.DOC;
   if(s.NUR&&typeof s.NUR==="object") NUR=s.NUR;
+  if(s.DRV&&typeof s.DRV==="object") DRV=s.DRV;
   if(Array.isArray(s.NG)) NG=s.NG;
   if(Array.isArray(s.PAPREF)) PAPREF=s.PAPREF;
+  if(Array.isArray(s.NGDRV)) NGDRV=s.NGDRV;
+  if(Array.isArray(s.CONTRACTDRV)) CONTRACTDRV=s.CONTRACTDRV;
   return true;
 }
 async function cloudSave(){
@@ -626,11 +774,48 @@ function openAdmin(){
 function lockAdmin(){ adminMode=false; applyAdminVisibility(); generate();
   if(location.hash) history.replaceState(null,"",location.pathname+location.search); }
 
+/* ===== 管理ページ2（ドライバー・別PIN）===== */
+let admin2Mode=false;
+const _AP2="MjAyNnl1bWU="; // PIN2(base64)
+function checkPin2(p){ try{ return p===atob(_AP2); }catch(e){ return false; } }
+function applyAdmin2Visibility(){
+  const ap=document.getElementById("admin2Panel"); if(ap) ap.style.display=admin2Mode?"block":"none";
+  const al=document.querySelector(".adminlink2"); if(al) al.style.display=admin2Mode?"none":"inline";
+}
+function openAdmin2(){
+  if(admin2Mode){ document.getElementById("admin2Panel").scrollIntoView({behavior:"smooth"}); return; }
+  const p=prompt("管理ページ2（ドライバー）のPIN（合言葉）を入力してください");
+  if(p===null) return;
+  if(checkPin2(p.trim())){ admin2Mode=true; renderNgDrv(); applyAdmin2Visibility();
+    document.getElementById("admin2Panel").scrollIntoView({behavior:"smooth",block:"start"}); }
+  else{ alert("PINが違います。"); }
+}
+function lockAdmin2(){ admin2Mode=false; applyAdmin2Visibility();
+  if(location.hash) history.replaceState(null,"",location.pathname+location.search); }
+function renderNgDrv(){
+  const docNames=Object.keys(DOC), drvNames=Object.keys(DRV);
+  const dd=document.getElementById("ngDrvDoc"), nd=document.getElementById("ngDrvDrv");
+  if(dd) dd.innerHTML=["【物品庫チェック】","【単独】"].concat(docNames).map(d=>`<option>${d}</option>`).join("");
+  if(nd) nd.innerHTML=drvNames.map(d=>`<option>${d}</option>`).join("");
+  const list=document.getElementById("ngDrvList");
+  if(list) list.innerHTML=NGDRV.map((p,i)=>`<span class="tag"><b>${p[0]}</b>×${p[1]}<span onclick="NGDRV.splice(${i},1);renderNgDrv();generate(true)">×</span></span>`).join("")||"<span class='hint'>なし</span>";
+}
+function addNgDrv(){ const d=document.getElementById("ngDrvDoc").value, n=document.getElementById("ngDrvDrv").value;
+  if(d&&n&&!NGDRV.some(p=>p[0]==d&&p[1]==n)){ NGDRV.push([d,n]); renderNgDrv(); generate(true); } }
+function renderContractDrv(){
+  const sel=document.getElementById("contractDrvSel");
+  if(sel) sel.innerHTML=Object.keys(DRV).map(d=>`<option>${d}</option>`).join("");
+  const list=document.getElementById("contractDrvList");
+  if(list) list.innerHTML=CONTRACTDRV.map((d,i)=>`<span class="tag"><b>${d}</b><span onclick="CONTRACTDRV.splice(${i},1);renderContractDrv();generate(true)">×</span></span>`).join("")||"<span class='hint'>なし</span>";
+}
+function addContractDrv(){ const d=document.getElementById("contractDrvSel").value; if(d&&!CONTRACTDRV.includes(d)){ CONTRACTDRV.push(d); renderContractDrv(); generate(true); } }
+
 /* 起動 */
 async function start(){
-  initDates(); loadDefault(); renderDates(); renderInputs(); applyAdminVisibility(); generate(true);
+  initDates(); loadDefault(); renderDates(); renderInputs(); applyAdminVisibility(); applyAdmin2Visibility(); generate(true);
   await cloudLoad(); // 共有データがあれば反映
   if(location.hash==="#admin") openAdmin();
+  if(location.hash==="#admin2") openAdmin2();
 }
 start();
 </script>
