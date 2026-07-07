@@ -221,11 +221,19 @@
   <div id="adminPanel" class="card no-print" style="display:none;border:1px solid #C9A227;background:#FFFDF5">
     <h2>🔧 管理ページ（関係者のみ）</h2>
     <p class="hint">PINで保護されています。ここでの「初期値に戻す」は自分の画面のみに作用し、共有データには影響しません。</p>
-    <div class="controls">
+    <div style="margin-top:12px">
+      <b style="font-size:13px;">看護師の削除</b>
+      <div class="ng-list" id="nurDelList"></div>
+    </div>
+    <div style="margin-top:12px">
+      <b style="font-size:13px;">ドライバーの削除</b>
+      <div class="ng-list" id="drvDelList"></div>
+    </div>
+    <div class="controls" style="margin-top:14px">
       <button class="sec" onclick="resetAll()">↺ 初期値に戻す（この画面のみ）</button>
       <button class="sec" onclick="lockAdmin()">🔒 管理モードを終了</button>
     </div>
-    <p class="hint" style="margin-top:10px">下の「③ 詳細ルール（NGペア・PA優先）」と、生成結果の「検証」も管理モードのときだけ表示されます。</p>
+    <p class="hint" style="margin-top:10px">下の「④ 詳細ルール（NGペア・PA優先）」と、生成結果の「検証」も管理モードのときだけ表示されます。</p>
   </div>
 
   <div id="result"></div>
@@ -317,24 +325,24 @@ function renderInputs(){
   document.getElementById("docTbl").innerHTML=h+"</tbody>";
   // nurses（週別：1週目 月〜金 / 2週目 月〜金）
   let g="<thead><tr><th rowspan='2'>看護師</th><th rowspan='2'>区分</th>"+
-    `<th colspan='5' class='daysep'>${weekTitle(0)}</th><th colspan='5'>${weekTitle(1)}</th><th rowspan='2'></th></tr><tr>`+
+    `<th colspan='5' class='daysep'>${weekTitle(0)}</th><th colspan='5'>${weekTitle(1)}</th></tr><tr>`+
     [0,1].map(wk=>WD.map((d,i)=>`<th class='${(wk===0&&i===4)?"daysep":""}'>${dayLabel(wk,i)}</th>`).join("")).join("")+
     "</tr></thead><tbody>";
   for(const n in NUR){
     g+=`<tr><td class="rowhdr">${n}</td><td>${NUR[n].pa?"PA(アシ)":"常勤"}</td>`;
     NUR[n].av.forEach((v,di)=>{ const sep=(di===4)?"daysep":""; g+=`<td class="av ${cls(v)} ${sep}" onclick="openPick(event,'nur','${n}',${di})">${v}</td>`; });
-    g+=`<td class="no-print"><span style="cursor:pointer;color:#c00;font-weight:700;" onclick="delNurse('${n}')">×</span></td></tr>`;
+    g+=`</tr>`;
   }
   document.getElementById("nurTbl").innerHTML=g+"</tbody>";
   // drivers（週別：1週目 月〜金 / 2週目 月〜金）
   let dv="<thead><tr><th rowspan='2'>ドライバー</th>"+
-    `<th colspan='5' class='daysep'>${weekTitle(0)}</th><th colspan='5'>${weekTitle(1)}</th><th rowspan='2'></th></tr><tr>`+
+    `<th colspan='5' class='daysep'>${weekTitle(0)}</th><th colspan='5'>${weekTitle(1)}</th></tr><tr>`+
     [0,1].map(wk=>WD.map((d,i)=>`<th class='${(wk===0&&i===4)?"daysep":""}'>${dayLabel(wk,i)}</th>`).join("")).join("")+
     "</tr></thead><tbody>";
   for(const n in DRV){
     dv+=`<tr><td class="rowhdr">${n}</td>`;
     DRV[n].av.forEach((v,di)=>{ const sep=(di===4)?"daysep":""; dv+=`<td class="av ${dcls(v)} ${sep}" onclick="openPick(event,'drv','${n}',${di})">${v}</td>`; });
-    dv+=`<td class="no-print"><span style="cursor:pointer;color:#c00;font-weight:700;" onclick="delDriver('${n}')">×</span></td></tr>`;
+    dv+=`</tr>`;
   }
   document.getElementById("drvTbl").innerHTML=dv+"</tbody>";
   renderRules(); renderNgDrv(); renderContractDrv();
@@ -415,6 +423,11 @@ function renderRules(){
     `<span class="tag"><b>${p[0]}</b>×${p[1]}<span onclick="NG.splice(${i},1);renderRules()">×</span></span>`).join("")||"<span class='hint'>なし</span>";
   document.getElementById("paList").innerHTML=PAPREF.map((d,i)=>
     `<span class="tag"><b>${d}</b><span onclick="PAPREF.splice(${i},1);renderRules()">×</span></span>`).join("")||"<span class='hint'>なし</span>";
+  // 看護師・ドライバー削除リスト（管理ページ用）
+  const nurDel=document.getElementById("nurDelList");
+  if(nurDel) nurDel.innerHTML=nurNames.map(n=>`<span class="tag"><b>${n}</b><span onclick="delNurse('${n}')">×</span></span>`).join("")||"<span class='hint'>なし</span>";
+  const drvDel=document.getElementById("drvDelList");
+  if(drvDel) drvDel.innerHTML=Object.keys(DRV).map(n=>`<span class="tag"><b>${n}</b><span onclick="delDriver('${n}')">×</span></span>`).join("")||"<span class='hint'>なし</span>";
 }
 function addNG(){const d=ngDoc.value,n=ngNur.value;if(d&&n&&!NG.some(p=>p[0]==d&&p[1]==n)){NG.push([d,n]);renderRules();}}
 function addPA(){const d=paDoc.value;if(d&&!PAPREF.includes(d)){PAPREF.push(d);renderRules();}}
