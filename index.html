@@ -6,23 +6,43 @@
 <title>ゆめクリニック訪問診療シフト作成</title>
 <style>
   :root{--navy:#1F3864;--blue:#2E5496;--lblue:#D6E4F0;--grey:#F2F2F2;--green:#2E7D32;
-        --greenbg:#E2EFDA;--purple:#E6E0F0;--orange:#FCE4D6;--red:#C00000;--line:#BFBFBF;}
+        --greenbg:#E2EFDA;--purple:#E6E0F0;--orange:#FCE4D6;--red:#C00000;--line:#BFBFBF;
+        --ink:#1B2A41;--muted:#667085;--bg:#EEF2F8;--border:#E1E7F0;
+        --radius:14px;--shadow:0 1px 2px rgba(20,45,90,.04),0 4px 14px rgba(20,45,90,.06);}
   *{box-sizing:border-box;}
   body{font-family:"Yu Gothic","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
-       margin:0;background:#F7F9FC;color:#1a1a1a;font-size:14px;}
-  header{background:var(--navy);color:#fff;padding:16px 22px;}
-  header h1{margin:0;font-size:19px;}
-  header p{margin:4px 0 0;font-size:12.5px;opacity:.85;}
-  .wrap{max-width:1180px;margin:0 auto;padding:18px;}
-  .card{background:#fff;border:1px solid #E3E8F0;border-radius:10px;padding:16px 18px;margin-bottom:16px;
-        box-shadow:0 1px 3px rgba(0,0,0,.04);}
-  .card h2{font-size:15px;margin:0 0 4px;color:var(--navy);}
-  .card .hint{font-size:12px;color:#667085;margin:0 0 12px;}
+       margin:0;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.6;
+       -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  header{background:linear-gradient(135deg,#24406e 0%,#1F3864 55%,#182c50 100%);color:#fff;
+         padding:22px 26px;border-bottom:3px solid #C9A227;}
+  header h1{margin:0;font-size:21px;font-weight:700;letter-spacing:.02em;}
+  header p{margin:7px 0 0;font-size:12.5px;opacity:.82;font-weight:400;}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 20px 48px;}
+  .card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:18px;
+        box-shadow:var(--shadow);}
+  .card h2{font-size:16px;margin:0 0 10px;color:var(--navy);font-weight:700;position:relative;
+           padding-left:13px;display:flex;align-items:center;gap:6px;}
+  .card h2::before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:4px;border-radius:3px;
+           background:linear-gradient(var(--blue),var(--navy));}
+  .card .hint{font-size:12.5px;color:#4A5568;line-height:1.75;margin:0 0 14px;
+           background:#F5F8FD;border:1px solid #E5EDF7;border-left:3px solid var(--blue);
+           border-radius:8px;padding:10px 13px;}
+  .card .hint b{color:var(--navy);}
   table{border-collapse:collapse;width:100%;}
-  th,td{border:1px solid var(--line);padding:5px 6px;text-align:center;font-size:13px;}
-  thead th{background:var(--navy);color:#fff;font-weight:700;}
-  .rowhdr{background:var(--grey);font-weight:700;text-align:left;padding-left:10px;white-space:nowrap;}
-  .av{cursor:pointer;font-weight:700;user-select:none;min-width:42px;}
+  th,td{border:1px solid #D8DFEA;padding:7px 7px;text-align:center;font-size:13px;}
+  thead th{background:var(--navy);color:#fff;font-weight:700;letter-spacing:.02em;}
+  .rowhdr{background:#EEF2F8;font-weight:700;text-align:left;padding-left:11px;white-space:nowrap;color:var(--navy);}
+  .delx{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-right:7px;
+        border-radius:50%;background:#E3E9F1;color:#8a94a6;font-weight:700;font-size:12px;line-height:1;cursor:pointer;
+        vertical-align:middle;transition:background .12s,color .12s;}
+  .delx:hover{background:var(--red);color:#fff;}
+  .delnote{font-size:11.5px;color:#8a94a6;align-self:center;}
+  .addrow-sep{width:1px;align-self:stretch;background:#E1E7F0;margin:2px 6px;}
+  .del-btn{background:#fff;border:1px solid #E3B5B5;color:var(--red);font-weight:600;}
+  .del-btn:hover{background:#FBEDED;border-color:var(--red);}
+  .addrow select{min-width:120px;}
+  .av{cursor:pointer;font-weight:700;user-select:none;min-width:42px;transition:filter .12s,box-shadow .12s;}
+  .av:hover{filter:brightness(.95);box-shadow:inset 0 0 0 2px rgba(46,84,150,.35);}
   .av.on{background:#fff;color:#1a7a1a;}
   .av.off{background:var(--orange);color:#999;}
   .av.kibo{background:#FFF2CC;color:#9a7b00;}
@@ -37,23 +57,29 @@
   .av.drv4{background:#E6E0F0;color:#5b3d8a;} /* 単独 */
   #drvTbl td.av{font-size:12px;min-width:52px;}
   #docTbl td.av{font-size:12.5px;letter-spacing:-.5px;min-width:48px;}
-  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:4px;}
-  button{font-family:inherit;font-size:14px;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;}
-  .gen{background:var(--green);color:#fff;font-weight:700;}
-  .gen:hover{background:#256127;}
-  .sec{background:#fff;border:1px solid var(--green);color:var(--green);font-weight:700;}
-  .sec:hover{background:#f0f7f0;}
-  .cloud{background:var(--blue);color:#fff;font-weight:700;}
-  .cloud:hover{background:#24477f;}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;}
+  button{font-family:inherit;font-size:14px;border:1px solid transparent;border-radius:10px;padding:11px 20px;
+         cursor:pointer;font-weight:600;transition:background .15s,box-shadow .15s,transform .05s,border-color .15s;}
+  button:active{transform:translateY(1px);}
+  button:focus-visible{outline:3px solid rgba(46,84,150,.35);outline-offset:2px;}
+  .gen{background:linear-gradient(180deg,#3A9A3E,#2E7D32);color:#fff;font-weight:700;font-size:15px;
+       padding:13px 30px;box-shadow:0 2px 8px rgba(46,125,50,.28);}
+  .gen:hover{background:linear-gradient(180deg,#348137,#256127);box-shadow:0 4px 12px rgba(46,125,50,.34);}
+  .sec{background:#fff;border:1px solid #CBD5E4;color:var(--navy);font-weight:600;}
+  .sec:hover{background:#F3F7FC;border-color:var(--blue);}
+  .cloud{background:linear-gradient(180deg,#356AB0,#2E5496);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(46,84,150,.24);}
+  .cloud:hover{background:linear-gradient(180deg,#2E5C9C,#24477f);box-shadow:0 4px 12px rgba(46,84,150,.3);}
   .adminlink{font-size:12.5px;color:#8a8f98;text-decoration:none;border-bottom:1px dotted #b6bac2;}
   .adminlink:hover{color:var(--blue);border-bottom-color:var(--blue);}
   .cstatus{font-size:12.5px;color:#667085;align-self:center;}
   .cstatus.err{color:var(--red);}
   .cstatus.ok{color:var(--green);}
   details{margin-top:6px;}
-  summary{cursor:pointer;color:var(--blue);font-size:13px;font-weight:600;padding:6px 0;}
-  .ng-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
-  .tag{background:var(--grey);border:1px solid #ddd;border-radius:14px;padding:3px 10px;font-size:12px;display:flex;gap:6px;align-items:center;}
+  summary{cursor:pointer;color:var(--blue);font-size:13px;font-weight:600;padding:8px 12px;
+          background:#F3F7FC;border:1px solid #E1E7F0;border-radius:8px;list-style-position:inside;}
+  summary:hover{background:#EAF1FA;}
+  .ng-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px;}
+  .tag{background:#F3F7FC;border:1px solid #DCE4EF;border-radius:16px;padding:4px 12px;font-size:12px;display:flex;gap:7px;align-items:center;}
   .tag b{font-weight:700;}
   .tag span{cursor:pointer;color:#c00;font-weight:700;}
   .doc{background:var(--lblue);font-weight:700;}
@@ -70,8 +96,11 @@
   .vrow{display:flex;justify-content:space-between;align-items:center;padding:7px 4px;border-bottom:1px solid #eee;font-size:13px;}
   .bar{height:14px;background:var(--green);border-radius:3px;display:inline-block;vertical-align:middle;}
   .barwrap{display:flex;align-items:center;gap:8px;}
-  select{font-family:inherit;font-size:12.5px;padding:3px;border:1px solid #ccc;border-radius:5px;}
-  .addrow{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+  select{font-family:inherit;font-size:12.5px;padding:6px 8px;border:1.5px solid #D5DCE6;border-radius:7px;background:#fff;}
+  select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(46,84,150,.15);}
+  .addrow{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;}
+  .addrow input{font-family:inherit;font-size:13.5px;padding:8px 11px !important;border:1.5px solid #D5DCE6 !important;border-radius:8px !important;}
+  .addrow input:focus{outline:none;border-color:var(--blue) !important;box-shadow:0 0 0 3px rgba(46,84,150,.15);}
   @media print{header,.no-print{display:none;}body{background:#fff;}}
   .pickmenu{position:fixed;z-index:1000;background:#fff;border:1px solid #bbb;border-radius:8px;
     box-shadow:0 4px 18px rgba(0,0,0,.18);padding:4px;min-width:132px;display:none;}
@@ -89,7 +118,8 @@
   .mhint{display:none;font-size:11.5px;color:#2E5496;margin:0 0 8px;}
   .daterow{display:flex;gap:18px;flex-wrap:wrap;}
   .daterow label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--navy);}
-  .daterow input[type=date]{font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid #ccc;border-radius:7px;}
+  .daterow input[type=date]{font-family:inherit;font-size:14px;padding:9px 12px;border:1.5px solid #D5DCE6;border-radius:8px;background:#fff;}
+  .daterow input[type=date]:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(46,84,150,.15);}
   /* スマホ向け調整 */
   @media (max-width:640px){
     header{padding:13px 16px;}
@@ -126,19 +156,29 @@
 
   <div class="card no-print">
     <h2>① 医師スケジュール</h2>
-    <p class="hint">セルをタップして設定します。○=稼働 / ◎=処置あり / 契=契約 / ✓=物品庫チェック は<b>複数選択できます</b>（×=休のみ単独）。契約の日は結果表で【契】が付き、契約専任ドライバー（管理ページ2）だけが割り当てられます。物品庫チェックの日は、医師名の横に✓が付きます。</p>
+    <p class="hint">セルをタップして設定します。○=稼働 / ◎=処置あり / 契=契約 / ✓=物品庫チェック は<b>複数選択できます</b>（×=休のみ単独）。契約の日は結果表で【契】が付き、契約専任ドライバーだけが割り当てられます。物品庫チェックの日は、医師名の横に✓が付きます。</p>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="docTbl"></table></div>
+    <div class="addrow">
+      <input id="newDoc" placeholder="医師名">
+      <button class="sec" onclick="addDoc()">＋ 追加</button>
+      <span class="addrow-sep"></span>
+      <select id="delDocSel"></select>
+      <button class="del-btn" onclick="delSel('delDocSel',delDoc)">－ 削除</button>
+    </div>
   </div>
 
   <div class="card no-print">
     <h2>② 看護師</h2>
-    <p class="hint">セルをタップすると選択メニューが開きます（○=稼働 / ×=休 / △=内勤）。PAで始まる名前はアシスタント扱い。</p>
+    <p class="hint">セルをタップすると選択メニューが開きます（○=稼働 / ×=休 / △=内勤）。</p>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="nurTbl"></table></div>
     <div class="addrow">
-      <input id="newNur" placeholder="看護師名（PA…でアシ）" style="padding:6px;border:1px solid #ccc;border-radius:6px;">
+      <input id="newNur" placeholder="看護師名（PA…でアシ）">
       <button class="sec" onclick="addNurse()">＋ 追加</button>
+      <span class="addrow-sep"></span>
+      <select id="delNurSel"></select>
+      <button class="del-btn" onclick="delSel('delNurSel',delNurse)">－ 削除</button>
     </div>
   </div>
 
@@ -148,8 +188,11 @@
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="drvTbl"></table></div>
     <div class="addrow">
-      <input id="newDrv" placeholder="ドライバー名" style="padding:6px;border:1px solid #ccc;border-radius:6px;">
+      <input id="newDrv" placeholder="ドライバー名">
       <button class="sec" onclick="addDriver()">＋ 追加</button>
+      <span class="addrow-sep"></span>
+      <select id="delDrvSel"></select>
+      <button class="del-btn" onclick="delSel('delDrvSel',delDriver)">－ 削除</button>
     </div>
   </div>
 
@@ -221,14 +264,7 @@
   <div id="adminPanel" class="card no-print" style="display:none;border:1px solid #C9A227;background:#FFFDF5">
     <h2>🔧 管理ページ（関係者のみ）</h2>
     <p class="hint">PINで保護されています。ここでの「初期値に戻す」は自分の画面のみに作用し、共有データには影響しません。</p>
-    <div style="margin-top:12px">
-      <b style="font-size:13px;">看護師の削除</b>
-      <div class="ng-list" id="nurDelList"></div>
-    </div>
-    <div style="margin-top:12px">
-      <b style="font-size:13px;">ドライバーの削除</b>
-      <div class="ng-list" id="drvDelList"></div>
-    </div>
+    <p class="hint" style="margin-top:12px">医師・看護師・ドライバーの追加／削除は、各セクションの表で直接できます（追加は表の下、削除は行頭の × ）。</p>
     <div class="controls" style="margin-top:14px">
       <button class="sec" onclick="resetAll()">↺ 初期値に戻す（この画面のみ）</button>
       <button class="sec" onclick="lockAdmin()">🔒 管理モードを終了</button>
@@ -329,7 +365,7 @@ function renderInputs(){
     [0,1].map(wk=>WD.map((d,i)=>`<th class='${(wk===0&&i===4)?"daysep":""}'>${dayLabel(wk,i)}</th>`).join("")).join("")+
     "</tr></thead><tbody>";
   for(const n in NUR){
-    g+=`<tr><td class="rowhdr">${n}</td><td>${NUR[n].pa?"PA(アシ)":"常勤"}</td>`;
+    g+=`<tr><td class="rowhdr">${n}</td><td>${NUR[n].pa?"PA":"常勤"}</td>`;
     NUR[n].av.forEach((v,di)=>{ const sep=(di===4)?"daysep":""; g+=`<td class="av ${cls(v)} ${sep}" onclick="openPick(event,'nur','${n}',${di})">${v}</td>`; });
     g+=`</tr>`;
   }
@@ -345,15 +381,31 @@ function renderInputs(){
     dv+=`</tr>`;
   }
   document.getElementById("drvTbl").innerHTML=dv+"</tbody>";
-  renderRules(); renderNgDrv(); renderContractDrv();
+  renderRules(); renderNgDrv(); renderContractDrv(); populateDelSelects();
 }
+function fillSel(id,names){ const el=document.getElementById(id); if(!el)return;
+  el.innerHTML=(names.length?names:[]).map(n=>`<option>${n}</option>`).join("")
+    || `<option value="">（なし）</option>`; }
+function populateDelSelects(){
+  fillSel("delDocSel",Object.keys(DOC));
+  fillSel("delNurSel",Object.keys(NUR));
+  fillSel("delDrvSel",Object.keys(DRV));
+}
+function delSel(id,fn){ const el=document.getElementById(id); const n=el?el.value:""; if(n) fn(n); }
 function addDriver(){
   const v=document.getElementById("newDrv").value.trim();
   if(!v||DRV[v])return;
   DRV[v]={av:[0,1,2,3,4,5,6,7,8,9].map(_=> "◯")};
   document.getElementById("newDrv").value=""; renderInputs();
 }
-function delDriver(n){ delete DRV[n]; renderInputs(); }
+function delDriver(n){ if(!confirm(n+" を削除しますか？"))return; delete DRV[n]; NGDRV=NGDRV.filter(p=>p[1]!==n); CONTRACTDRV=CONTRACTDRV.filter(d=>d!==n); renderInputs(); generate(true); }
+function addDoc(){
+  const el=document.getElementById("newDoc"); const v=el.value.trim();
+  if(!v||DOC[v])return;
+  DOC[v]=[0,1,2,3,4,5,6,7,8,9].map(_=> "×");
+  el.value=""; renderInputs(); generate(true);
+}
+function delDoc(n){ if(!confirm(n+" を削除しますか？"))return; delete DOC[n]; NG=NG.filter(p=>p[0]!==n); PAPREF=PAPREF.filter(d=>d!==n); NGDRV=NGDRV.filter(p=>p[0]!==n); renderInputs(); generate(true); }
 function cycDoc(n,wd){ DOC[n][wd]=DOC_CYCLE[DOC[n][wd]]; renderInputs(); }
 function cycNur(n,di){ NUR[n].av[di]=NUR_CYCLE[NUR[n].av[di]]; renderInputs(); }
 const PICK_OPTS={doc:[["○","稼働"],["◎","処置あり"],["契約","契約"],["×","休"]],nur:[["○","稼働"],["×","休"],["△","内勤"]],
@@ -380,7 +432,12 @@ function openPick(ev,type,name,di){
   if(top+mh>window.innerHeight-8) top=r.top-mh-4;
   m.style.left=Math.max(8,left)+"px"; m.style.top=Math.max(8,top)+"px";
 }
-function pick(type,name,di,v){ if(type==="doc")DOC[name][di]=v; else if(type==="drv")DRV[name].av[di]=v; else NUR[name].av[di]=v; closePick(); renderInputs(); generate(true); }
+function pick(type,name,di,v){
+  if(type==="doc")DOC[name][di]=v;
+  else if(type==="drv")DRV[name].av[di]=v;
+  else { NUR[name].av[di]=v; if(v==="△") NUR[name].av[(di+5)%10]="△"; } // 内勤△は同じ曜日の1週目・2週目 両方に反映
+  closePick(); renderInputs(); generate(true);
+}
 /* 医師は複数選択（休以外は組合せ可）*/
 function renderDocMenu(m,name,di){
   const v=DOC[name][di];
@@ -412,7 +469,7 @@ function addNurse(){
   NUR[v]={pa:v.startsWith("PA"),av:[0,1,2,3,4,5,6,7,8,9].map(_=> "○")};
   document.getElementById("newNur").value=""; renderInputs(); generate(true);
 }
-function delNurse(n){ delete NUR[n]; renderInputs(); generate(true); }
+function delNurse(n){ if(!confirm(n+" を削除しますか？"))return; delete NUR[n]; NG=NG.filter(p=>p[1]!==n); renderInputs(); generate(true); }
 
 function renderRules(){
   const docNames=Object.keys(DOC), nurNames=Object.keys(NUR);
