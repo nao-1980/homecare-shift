@@ -716,20 +716,21 @@ function generate(auto){
         if(ci<pairs.length){
           const [doc,nur]=pairs[ci];
           const treat=docHas(doc,di,"◎"), contract=docHas(doc,di,"契"), chk=docHas(doc,di,"✓");
-          const dpm=docHas(doc,di,"前")?" <small>午前</small>":docHas(doc,di,"後")?" <small>午後</small>":"";
-          const marks=(treat?" ◎":"")+(contract?" 【契】":"")+(chk?" ✓":"")+dpm;
-          html+=`<td class="doc${treat?" treat":contract?" contract":""}">${doc}${marks}</td>`;
-          if(nur){const c=R.paSet.has(nur)?"nur-pa":"nur-jp"; const nv=NUR[nur]?NUR[nur].av[di]:""; const npm=nv==="前"?" <small>午前</small>":nv==="後"?" <small>午後</small>":""; html+=`<td class="${c}">${paBreak(nur)}${npm}</td>`;}
+          const dpm=docHas(doc,di,"前")?"<br><small>午前</small>":docHas(doc,di,"後")?"<br><small>午後</small>":""; // 午前/午後は名前の下段に
+          const marks=(treat?" ◎":"")+(contract?" 【契】":"")+(chk?" ✓":"");
+          html+=`<td class="doc${treat?" treat":contract?" contract":""}">${doc}${marks}${dpm}</td>`;
+          if(nur){const c=R.paSet.has(nur)?"nur-pa":"nur-jp"; const nv=NUR[nur]?NUR[nur].av[di]:""; const npm=nv==="前"?"<br><small>午前</small>":nv==="後"?"<br><small>午後</small>":""; html+=`<td class="${c}">${paBreak(nur)}${npm}</td>`;}
           else html+=`<td class="nur-no">—</td>`;
           const drv=R.dschedule[di][ci]||{am:null,pm:null};
           const amEmpty=docHas(doc,di,"後"), pmEmpty=docHas(doc,di,"前"); // 医師が午後/午前のみ＝反対の時間帯は空き（待機）
           if(!drv.am && !drv.pm && !amEmpty && !pmEmpty){ html+=`<td class="nur-no ${sep}">—</td>`; }
           else if(drv.am===drv.pm && drv.am){ html+=`<td class="drv-jp ${sep}">${drv.am}</td>`; } // 終日同じ
-          else{ const amTxt=drv.am||(amEmpty?'<span style="color:#888">空き</span>':"—"), pmTxt=drv.pm||(pmEmpty?'<span style="color:#888">空き</span>':"—"); html+=`<td class="drv-jp ${sep}" style="font-size:11px;line-height:1.35;text-align:left;padding-left:6px">前 ${amTxt}<br>後 ${pmTxt}</td>`; }
+          else{ const amTxt=drv.am||(amEmpty?'<span style="color:#888">空き</span>':"—"), pmTxt=drv.pm||(pmEmpty?'<span style="color:#888">空き</span>':"—"); html+=`<td class="drv-jp ${sep}" style="font-size:11px;line-height:1.35;text-align:center">前 ${amTxt}<br>後 ${pmTxt}</td>`; }
         }else if(ci-pairs.length < STANDBY[di].length){
           const nur=STANDBY[di][ci-pairs.length];
           const c=R.paSet.has(nur)?"nur-pa":"nur-jp";
-          html+=`<td style="background:#FAFAFA;color:#888;font-size:12px">待機</td><td class="${c}">${paBreak(nur)}</td><td class="${sep}" style="background:#FAFAFA"></td>`;
+          const snv=NUR[nur]?NUR[nur].av[di]:""; const snpm=snv==="前"?"<br><small>午前</small>":snv==="後"?"<br><small>午後</small>":"";
+          html+=`<td style="background:#FAFAFA;color:#888;font-size:12px">待機</td><td class="${c}">${paBreak(nur)}${snpm}</td><td class="${sep}" style="background:#FAFAFA"></td>`;
         }else if(ci-pairs.length-STANDBY[di].length < INHOUSE[di].length){
           const nur=INHOUSE[di][ci-pairs.length-STANDBY[di].length];
           const c=R.paSet.has(nur)?"nur-pa":"nur-jp";
