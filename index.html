@@ -727,14 +727,28 @@ function generate(auto){
       }
       html+="</tr>";
     }
-    // I:内勤ドライバー / J:単独ドライバー（H行の下に追加）
+    // I:内勤ドライバー / J:単独ドライバー / 待機:稼働だが乗車なし（余ったドライバー）
     const drvBy=(di,st)=>Object.keys(DRV).filter(n=>DRV[n].av[di]===st);
+    const drvStandby=di=>{
+      const am=new Set(), pm=new Set();
+      (R.dschedule[di]||[]).forEach(c=>{ if(c&&c.am)am.add(c.am); if(c&&c.pm)pm.add(c.pm); });
+      return Object.keys(DRV).filter(n=>["◯","前","後"].includes(DRV[n].av[di])).map(n=>{
+        const a=DRV[n].av[di], availAm=(a==="◯"||a==="前"), availPm=(a==="◯"||a==="後");
+        const freeAm=availAm&&!am.has(n), freePm=availPm&&!pm.has(n);
+        if(freeAm&&freePm) return n;            // 終日あき
+        if(freeAm) return n+"(午前)";           // 午前だけあき
+        if(freePm) return n+"(午後)";           // 午後だけあき
+        return null;
+      }).filter(Boolean);
+    };
     html+=`<tr><td class="rowhdr" style="text-align:center">I<br><small>内勤</small></td>`;
     for(let wd=0;wd<5;wd++){ const di=wk*5+wd,sp=wd<4?"daysep":""; html+=`<td colspan="3" class="${sp}" style="text-align:left;padding-left:8px;background:var(--lblue);color:#2E5496">${drvBy(di,"△").join("、")||"—"}</td>`; }
     html+=`</tr><tr><td class="rowhdr" style="text-align:center">J<br><small>単独</small></td>`;
     for(let wd=0;wd<5;wd++){ const di=wk*5+wd,sp=wd<4?"daysep":""; html+=`<td colspan="3" class="${sp}" style="text-align:left;padding-left:8px;background:#E6E0F0;color:#5b3d8a">${drvBy(di,"単独").join("、")||"—"}</td>`; }
+    html+=`</tr><tr><td class="rowhdr" style="text-align:center">待機<br><small>ドライバー</small></td>`;
+    for(let wd=0;wd<5;wd++){ const di=wk*5+wd,sp=wd<4?"daysep":""; html+=`<td colspan="3" class="${sp}" style="text-align:left;padding-left:8px;background:#FFF6E0;color:#8a6d00">${drvStandby(di).join("、")||"—"}</td>`; }
     html+=`</tr>`;
-    html+="</tbody></table></div><div class='legend'>◎=処置あり ／ 【契】=契約 ／ ✓=物品庫チェック（医師名に表示）／ 3列目=ドライバー（「前 ○○／後 ○○」は午前と午後で担当交代・1名のみは終日同じ・「空き」=医師が午前/午後のみで反対の時間帯は訪問なし＝待機）／ I=内勤・J=単独（ドライバー）／ 背景：青=医師 / 緑=常勤看護師 / 紫=PA / —=看護師不足 / 待機=出勤可だが乗車なし / 内勤=△指定で訪問車に乗らず内勤（人手不足のX車のみ応援可）</div></div>";
+    html+="</tbody></table></div><div class='legend'>◎=処置あり ／ 【契】=契約 ／ ✓=物品庫チェック（医師名に表示）／ 3列目=ドライバー（「前 ○○／後 ○○」は午前と午後で担当交代・1名のみは終日同じ・「空き」=医師が午前/午後のみで反対の時間帯は訪問なし＝待機）／ I=内勤・J=単独・待機=稼働だが乗車なし＝余ったドライバー（(午前)(午後)は片方だけあき）／ 背景：青=医師 / 緑=常勤看護師 / 紫=PA / —=看護師不足 / 待機=出勤可だが乗車なし / 内勤=△指定で訪問車に乗らず内勤（人手不足のX車のみ応援可）</div></div>";
   }
 
   // 検証
@@ -861,10 +875,13 @@ function exportExcel(){
       }
       aoa.push(row);
     }
-    // I:内勤 / J:単独（ドライバー）
+    // I:内勤 / J:単独 / 待機（ドライバー）
     const drvByX=(di,st)=>Object.keys(DRV).filter(n=>DRV[n].av[di]===st).join("、");
+    const drvStandbyX=di=>{ const am=new Set(),pm=new Set(); (R.dschedule[di]||[]).forEach(c=>{ if(c&&c.am)am.add(c.am); if(c&&c.pm)pm.add(c.pm); });
+      return Object.keys(DRV).filter(n=>["◯","前","後"].includes(DRV[n].av[di])).map(n=>{ const a=DRV[n].av[di],aA=(a==="◯"||a==="前"),aP=(a==="◯"||a==="後"),fA=aA&&!am.has(n),fP=aP&&!pm.has(n); return fA&&fP?n:fA?n+"(午前)":fP?n+"(午後)":null; }).filter(Boolean).join("、"); };
     const rowI=["I 内勤"]; for(let wd=0;wd<5;wd++){ const di=wk*5+wd; rowI.push("","",drvByX(di,"△")); } aoa.push(rowI);
     const rowJ=["J 単独"]; for(let wd=0;wd<5;wd++){ const di=wk*5+wd; rowJ.push("","",drvByX(di,"単独")); } aoa.push(rowJ);
+    const rowW=["待機"]; for(let wd=0;wd<5;wd++){ const di=wk*5+wd; rowW.push("","",drvStandbyX(di)); } aoa.push(rowW);
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     ws["!cols"]=[{wch:5}].concat(Array(15).fill({wch:9}));
     XLSX.utils.book_append_sheet(wb, ws, (wk+1)+"週目");
