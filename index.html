@@ -55,6 +55,8 @@
   .av.drv2{background:#DDEBF7;color:#1F4E79;} /* チェック */
   .av.drv3{background:#FFF2CC;color:#7f6000;} /* 準備 */
   .av.drv4{background:#E6E0F0;color:#5b3d8a;} /* 単独 */
+  .av.am{background:#DDEBF7;color:#1F4E79;} /* 午前のみ */
+  .av.pm{background:#FCE4D6;color:#c05621;} /* 午後のみ */
   #drvTbl td.av{font-size:12px;min-width:52px;}
   #docTbl td.av{font-size:12.5px;letter-spacing:-.5px;min-width:48px;}
   .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;}
@@ -156,7 +158,7 @@
 
   <div class="card no-print">
     <h2>① 医師スケジュール</h2>
-    <p class="hint">セルをタップして設定します。○=稼働 / ◎=処置あり / 契=契約 / ✓=物品庫チェック は<b>複数選択できます</b>（×=休のみ単独）。契約の日は結果表で【契】が付き、契約専任ドライバーだけが割り当てられます。物品庫チェックの日は、医師名の横に✓が付きます。</p>
+    <p class="hint">セルをタップして設定します。○=稼働 / ◎=処置あり / 契=契約 / ✓=物品庫チェック / 前=午前のみ / 後=午後のみ は<b>複数選択できます</b>（×=休のみ単独）。契約の日は結果表で【契】が付き、契約専任ドライバーだけが割り当てられます。物品庫チェックの日は、医師名の横に✓が付きます。<b>前／後は表示ラベル</b>で、割当は終日1台のまま（結果表に「午前」「午後」と表示）。</p>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="docTbl"></table></div>
     <div class="addrow">
@@ -170,7 +172,7 @@
 
   <div class="card no-print">
     <h2>② 看護師</h2>
-    <p class="hint">セルをタップすると選択メニューが開きます（○=稼働 / ×=休 / △=内勤）。</p>
+    <p class="hint">セルをタップすると選択メニューが開きます（○=稼働 / 前=午前のみ / 後=午後のみ / ×=休 / △=内勤）。前／後は<b>表示ラベル</b>で、割当は終日ベースのまま（結果表に「午前」「午後」と表示）。</p>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="nurTbl"></table></div>
     <div class="addrow">
@@ -184,7 +186,7 @@
 
   <div class="card no-print">
     <h2>③ ドライバー</h2>
-    <p class="hint">セルをタップすると選択メニューが開きます（◯=稼働 / △=内勤 / 単独 / ×=休）。1週目・2週目それぞれ設定できます。◯の人が各車の運転担当に割り当てられ、△＝内勤・単独は結果表の下の「I 内勤 / J 単独」に表示されます。</p>
+    <p class="hint">セルをタップすると選択メニューが開きます（◯=終日稼働 / 前=午前のみ / 後=午後のみ / △=内勤 / 単独 / ×=休）。1週目・2週目それぞれ設定できます。稼働の人が各車の運転担当に割り当てられ、<b>午前と午後は別々に割り当て</b>ます（原則は終日同じ人。不在時のみ交代）。△＝内勤・単独は結果表の下の「I 内勤 / J 単独」に表示されます。</p>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="drvTbl"></table></div>
     <div class="addrow">
@@ -269,7 +271,7 @@
       <button class="sec" onclick="resetAll()">↺ 初期値に戻す（この画面のみ）</button>
       <button class="sec" onclick="lockAdmin()">🔒 管理モードを終了</button>
     </div>
-    <p class="hint" style="margin-top:10px">下の「④ 詳細ルール（NGペア・PA優先）」と、生成結果の「検証」も管理モードのときだけ表示されます。</p>
+    <p class="hint" style="margin-top:10px">下の「④ 詳細ルール（NGペア・PA優先）」と、生成結果の「看護師の検証」はこの管理ページのときだけ表示されます。ドライバーの検証は「管理ページ2」で表示されます。</p>
   </div>
 
   <div id="result"></div>
@@ -342,8 +344,8 @@ function loadDefault(){
 /* ===== 入力UI ===== */
 const DOC_CYCLE={"○":"×","×":"○"};
 const NUR_CYCLE={"○":"×","×":"△","△":"○"};
-function cls(v){return v==="○"?"on":v==="×"?"off":v==="◎"?"chu":v==="契約"?"keiyaku":v==="希"?"kibo":"nai";}
-function dcls(v){return ({"◯":"on","△":"nai","単独":"drv4","×":"off"})[v]||"on";}
+function cls(v){return v==="○"?"on":v==="×"?"off":v==="◎"?"chu":v==="契約"?"keiyaku":v==="希"?"kibo":v==="前"?"am":v==="後"?"pm":"nai";}
+function dcls(v){return ({"◯":"on","前":"am","後":"pm","△":"nai","単独":"drv4","×":"off"})[v]||"on";}
 function docCellClass(v){ if(v==="×"||!v)return "off"; if(v.indexOf("◎")>=0)return "chu"; if(v.indexOf("契")>=0)return "keiyaku"; return "on"; }
 
 function renderInputs(){
@@ -408,9 +410,9 @@ function addDoc(){
 function delDoc(n){ if(!confirm(n+" を削除しますか？"))return; delete DOC[n]; NG=NG.filter(p=>p[0]!==n); PAPREF=PAPREF.filter(d=>d!==n); NGDRV=NGDRV.filter(p=>p[0]!==n); renderInputs(); generate(true); }
 function cycDoc(n,wd){ DOC[n][wd]=DOC_CYCLE[DOC[n][wd]]; renderInputs(); }
 function cycNur(n,di){ NUR[n].av[di]=NUR_CYCLE[NUR[n].av[di]]; renderInputs(); }
-const PICK_OPTS={doc:[["○","稼働"],["◎","処置あり"],["契約","契約"],["×","休"]],nur:[["○","稼働"],["×","休"],["△","内勤"]],
-  drv:[["◯","稼働"],["△","内勤"],["単独","単独"],["×","休"]]};
-function pmStyle(v){return (v==="○"||v==="◯")?"background:#fff;color:#1a7a1a":v==="×"?"background:#FCE4D6;color:#b06":v==="◎"?"background:#FFE699;color:#7a5a00":v==="契約"?"background:#E2EFDA;color:#375623":v==="チェック"?"background:#DDEBF7;color:#1F4E79":v==="準備"?"background:#FFF2CC;color:#7f6000":v==="単独"?"background:#E6E0F0;color:#5b3d8a":"background:#D6E4F0;color:#2E5496";}
+const PICK_OPTS={doc:[["○","稼働"],["◎","処置あり"],["契約","契約"],["×","休"]],nur:[["○","稼働"],["前","午前のみ"],["後","午後のみ"],["×","休"],["△","内勤"]],
+  drv:[["◯","終日稼働"],["前","午前のみ"],["後","午後のみ"],["△","内勤"],["単独","単独"],["×","休"]]};
+function pmStyle(v){return (v==="○"||v==="◯")?"background:#fff;color:#1a7a1a":v==="×"?"background:#FCE4D6;color:#b06":v==="◎"?"background:#FFE699;color:#7a5a00":v==="契約"?"background:#E2EFDA;color:#375623":v==="チェック"?"background:#DDEBF7;color:#1F4E79":v==="準備"?"background:#FFF2CC;color:#7f6000":v==="単独"?"background:#E6E0F0;color:#5b3d8a":v==="前"?"background:#DDEBF7;color:#1F4E79":v==="後"?"background:#FCE4D6;color:#c05621":"background:#D6E4F0;color:#2E5496";}
 function openPick(ev,type,name,di){
   ev.stopPropagation();
   let m=document.getElementById("pickMenu");
@@ -441,8 +443,8 @@ function pick(type,name,di,v){
 /* 医師は複数選択（休以外は組合せ可）*/
 function renderDocMenu(m,name,di){
   const v=DOC[name][di];
-  const opts=[["○","稼働"],["◎","処置あり"],["契","契約"],["✓","物品庫チェック"]];
-  let h=`<div class="pm-h">${name}（複数選択可・休以外）</div>`;
+  const opts=[["○","稼働"],["◎","処置あり"],["契","契約"],["✓","物品庫チェック"],["前","午前のみ"],["後","午後のみ"]];
+  let h=`<div class="pm-h">${name}（複数選択可・休以外／稼働・午前のみ・午後のみは同時選択不可）</div>`;
   h+=opts.map(([t,lab])=>{ const on=(v!=="×"&&v.indexOf(t)>=0);
     return `<div class="pm-opt ${on?"sel":""}" onclick="event.stopPropagation();toggleDoc('${name}',${di},'${t}')">`+
       `<span class="pm-sym" style="${pmStyle(t==="契"?"契約":t)}">${on?"☑":"☐"}</span><span class="pm-lab">${t} ${lab}</span></div>`; }).join("");
@@ -452,10 +454,14 @@ function renderDocMenu(m,name,di){
 }
 function toggleDoc(name,di,tok){
   if(tok==="×"){ DOC[name][di]="×"; closePick(); renderInputs(); generate(true); return; }
-  const order=["○","◎","契","✓"];
+  const order=["○","◎","契","✓","前","後"];
   const v=DOC[name][di];
   const set=new Set((v==="×"?"":v).split("").filter(Boolean));
   if(set.has(tok)) set.delete(tok); else set.add(tok);
+  // 稼働(○)・午前のみ(前)・午後のみ(後)は排他（同時選択不可）
+  if(tok==="○"){ set.delete("前"); set.delete("後"); }
+  if(tok==="前"){ set.delete("○"); set.delete("後"); }
+  if(tok==="後"){ set.delete("○"); set.delete("前"); }
   DOC[name][di]= order.filter(t=>set.has(t)).join("") || "×";
   const m=document.getElementById("pickMenu"); if(m) renderDocMenu(m,name,di);
   renderInputs(); generate(true);
@@ -493,7 +499,7 @@ function addPA(){const d=paDoc.value;if(d&&!PAPREF.includes(d)){PAPREF.push(d);r
 function davail(name,di){ return DOC[name][di]; }         // 週別（複数可の文字列。○◎契✓ の組合せ、または ×）
 function dHas(v,t){ return typeof v==="string" && v!=="×" && v.indexOf(t)>=0; }
 function docHas(name,di,t){ return dHas(davail(name,di),t); }
-function docWorks(name,di){ return docHas(name,di,"○")||docHas(name,di,"◎")||docHas(name,di,"契"); } // 訪問する（車が要る）
+function docWorks(name,di){ return docHas(name,di,"○")||docHas(name,di,"◎")||docHas(name,di,"契")||docHas(name,di,"前")||docHas(name,di,"後"); } // 訪問する（車が要る／午前・午後のみもラベル扱いで終日1台）
 function navail(name,di){ return NUR[name].av[di]; }      // 週別 ○ / × / 希 / △（di:0-9）
 function isNG(doc,nur){ return NG.some(p=>p[0]===doc&&p[1]===nur); }
 function isNGDrv(doc,drv){ return NGDRV.some(p=>p[0]===doc&&p[1]===drv); }
@@ -524,7 +530,7 @@ function solve(){
       let elig=nurseNames.filter(n=>{
         if(used.has(n)||isNG(doc,n))return false;
         const a=navail(n,di);
-        if(a==="○")return true;
+        if(a==="○"||a==="前"||a==="後")return true; // 午前のみ/午後のみもラベル扱い（終日充当可）
         if(a==="△")return doc==="X";   // 内勤はX車のみ
         return false;
       });
@@ -568,27 +574,38 @@ function solve(){
     }
     const daySorted=docs.slice().sort((a,b)=>(({"友佳子":1,"X":2}[a]||0))-(({"友佳子":1,"X":2}[b]||0))).map(d=>[d,assign[d]]);
     schedule.push(daySorted);
-    // ===== ドライバー割当（◯のみ・医師×ドライバーNG回避・負荷/曜日/週内で分散）=====
-    const usedDrv=new Set(), dayDrivers=[];
-    const availDrv=Object.keys(DRV).filter(n=>dravail(n,di)==="◯");
-    for(const [doc,nur] of daySorted){
-      const isContract=docHas(doc,di,"契"); // 契約の日
-      let elig=availDrv.filter(dn=>{
-        if(usedDrv.has(dn)||isNGDrv(doc,dn)) return false;
-        if(docHas(doc,di,"✓") && NGDRV.some(p=>p[0]==="【物品庫チェック】"&&p[1]===dn)) return false; // 物品庫チェックの日は付けない
-        if(isContract){ if(!CONTRACTDRV.includes(dn)) return false; } // 契約の車は契約専任ドライバーのみ
-        else if(CONTRACTDRV.includes(dn)) return false;               // 契約専任ドライバーは契約以外の車に付けない
-        return true;
+    // ===== ドライバー割当（午前/午後を別々に・◯/前/後の稼働・NG回避・分散）=====
+    // 各車 {am, pm}。午後は原則 午前と同じ人を続けて割り当て（不在時のみ交代）
+    const dayDrivers=daySorted.map(()=>({am:null,pm:null}));
+    ["am","pm"].forEach(half=>{
+      const wantVal = half==="am" ? "前" : "後";
+      const availDrv=Object.keys(DRV).filter(n=>{ const a=dravail(n,di); return a==="◯"||a===wantVal; });
+      const usedDrv=new Set();
+      daySorted.forEach(([doc,nur],ci)=>{
+        const isContract=docHas(doc,di,"契"); // 契約の日
+        let elig=availDrv.filter(dn=>{
+          if(usedDrv.has(dn)||isNGDrv(doc,dn)) return false;
+          if(docHas(doc,di,"✓") && NGDRV.some(p=>p[0]==="【物品庫チェック】"&&p[1]===dn)) return false; // 物品庫チェックの日は付けない
+          if(isContract){ if(!CONTRACTDRV.includes(dn)) return false; } // 契約の車は契約専任ドライバーのみ
+          else if(CONTRACTDRV.includes(dn)) return false;               // 契約専任ドライバーは契約以外の車に付けない
+          return true;
+        });
+        if(elig.length===0){ return; } // 割当なし（null）
+        const amDrv=dayDrivers[ci].am; // 午後は午前と同じ人を優先（継続）
+        const dswd=dn=>dWdPair[doc+"|"+(di%5)+"|"+dn]||0;
+        const dpc=dn=>dPairCnt[doc+"|"+dn]||0;
+        elig.sort((a,b)=>{
+          if(half==="pm"){ const ca=(a===amDrv?0:1), cb=(b===amDrv?0:1); if(ca!==cb) return ca-cb; }
+          const sw=dswd(a)-dswd(b); if(sw!==0)return sw;
+          const p=dpc(a)-dpc(b); if(p!==0)return p;
+          return dload[a]-dload[b];
+        });
+        const pk=elig[0]; usedDrv.add(pk); dload[pk]++;
+        dPairCnt[doc+"|"+pk]=(dPairCnt[doc+"|"+pk]||0)+1;
+        dWdPair[doc+"|"+(di%5)+"|"+pk]=(dWdPair[doc+"|"+(di%5)+"|"+pk]||0)+1;
+        dayDrivers[ci][half]=pk;
       });
-      if(elig.length===0){ dayDrivers.push(null); continue; }
-      const dswd=dn=>dWdPair[doc+"|"+(di%5)+"|"+dn]||0;
-      const dpc=dn=>dPairCnt[doc+"|"+dn]||0;
-      elig.sort((a,b)=>{ const sw=dswd(a)-dswd(b); if(sw!==0)return sw; const p=dpc(a)-dpc(b); if(p!==0)return p; return dload[a]-dload[b]; });
-      const pk=elig[0]; usedDrv.add(pk); dload[pk]++;
-      dPairCnt[doc+"|"+pk]=(dPairCnt[doc+"|"+pk]||0)+1;
-      dWdPair[doc+"|"+(di%5)+"|"+pk]=(dWdPair[doc+"|"+(di%5)+"|"+pk]||0)+1;
-      dayDrivers.push(pk);
-    }
+    });
     dschedule.push(dayDrivers);
   }
   return {schedule,dschedule,unfilled,soft,nload,dload,nurseNames,paSet};
@@ -602,7 +619,7 @@ function generate(auto){
   // 各日の待機看護師（出勤可○/希だが乗車なし）
   const STANDBY=R.schedule.map((pairs,di)=>{
     const used=new Set(pairs.map(p=>p[1]).filter(Boolean));
-    return R.nurseNames.filter(n=>NUR[n].av[di]==="○"&&!used.has(n));
+    return R.nurseNames.filter(n=>["○","前","後"].includes(NUR[n].av[di])&&!used.has(n));
   });
   // 各日の内勤看護師（△指定でX車にも乗らなかった人）
   const INHOUSE=R.schedule.map((pairs,di)=>{
@@ -625,12 +642,15 @@ function generate(auto){
         if(ci<pairs.length){
           const [doc,nur]=pairs[ci];
           const treat=docHas(doc,di,"◎"), contract=docHas(doc,di,"契"), chk=docHas(doc,di,"✓");
-          const marks=(treat?" ◎":"")+(contract?" 【契】":"")+(chk?" ✓":"");
+          const dpm=docHas(doc,di,"前")?" <small>午前</small>":docHas(doc,di,"後")?" <small>午後</small>":"";
+          const marks=(treat?" ◎":"")+(contract?" 【契】":"")+(chk?" ✓":"")+dpm;
           html+=`<td class="doc${treat?" treat":contract?" contract":""}">${doc}${marks}</td>`;
-          if(nur){const c=R.paSet.has(nur)?"nur-pa":"nur-jp"; html+=`<td class="${c}">${nur}</td>`;}
+          if(nur){const c=R.paSet.has(nur)?"nur-pa":"nur-jp"; const nv=NUR[nur]?NUR[nur].av[di]:""; const npm=nv==="前"?" <small>午前</small>":nv==="後"?" <small>午後</small>":""; html+=`<td class="${c}">${nur}${npm}</td>`;}
           else html+=`<td class="nur-no">—</td>`;
-          const drv=R.dschedule[di][ci];
-          html+=`<td class="${drv?"drv-jp":"nur-no"} ${sep}">${drv||"—"}</td>`;
+          const drv=R.dschedule[di][ci]||{am:null,pm:null};
+          if(!drv.am && !drv.pm){ html+=`<td class="nur-no ${sep}">—</td>`; }
+          else if(drv.am===drv.pm){ html+=`<td class="drv-jp ${sep}">${drv.am}</td>`; } // 終日同じ
+          else{ html+=`<td class="drv-jp ${sep}" style="font-size:11px;line-height:1.35;text-align:left;padding-left:6px">前 ${drv.am||"—"}<br>後 ${drv.pm||"—"}</td>`; }
         }else if(ci-pairs.length < STANDBY[di].length){
           const nur=STANDBY[di][ci-pairs.length];
           const c=R.paSet.has(nur)?"nur-pa":"nur-jp";
@@ -652,7 +672,7 @@ function generate(auto){
     html+=`</tr><tr><td class="rowhdr" style="text-align:center">J<br><small>単独</small></td>`;
     for(let wd=0;wd<5;wd++){ const di=wk*5+wd,sp=wd<4?"daysep":""; html+=`<td colspan="3" class="${sp}" style="text-align:left;padding-left:8px;background:#E6E0F0;color:#5b3d8a">${drvBy(di,"単独").join("、")||"—"}</td>`; }
     html+=`</tr>`;
-    html+="</tbody></table></div><div class='legend'>◎=処置あり ／ 【契】=契約 ／ ✓=物品庫チェック（医師名に表示）／ 3列目=ドライバー ／ I=内勤・J=単独（ドライバー）／ 背景：青=医師 / 緑=常勤看護師 / 紫=PA / —=看護師不足 / 待機=出勤可だが乗車なし / 内勤=△指定で訪問車に乗らず内勤（人手不足のX車のみ応援可）</div></div>";
+    html+="</tbody></table></div><div class='legend'>◎=処置あり ／ 【契】=契約 ／ ✓=物品庫チェック（医師名に表示）／ 3列目=ドライバー（「前 ○○／後 ○○」は午前と午後で担当交代・1名のみは終日同じ）／ I=内勤・J=単独（ドライバー）／ 背景：青=医師 / 緑=常勤看護師 / 紫=PA / —=看護師不足 / 待機=出勤可だが乗車なし / 内勤=△指定で訪問車に乗らず内勤（人手不足のX車のみ応援可）</div></div>";
   }
 
   // 検証
@@ -663,7 +683,7 @@ function generate(auto){
   const pairRep = checkPairRepeat(R);
   const sameWd = checkSameWd(R);
   const healthy = dup===0 && ngBad===0 && unfilledN===0;
-  if(adminMode){ html+=`<div class="card"><h2>検証（管理モード）</h2>`+
+  if(adminMode){ html+=`<div class="card"><h2>看護師の検証（管理ページ）</h2>`+
     vrow("看護師の同日重複", dup===0, dup+"件")+
     vrow("NGペアの割当", ngBad===0, ngBad+"件")+
     vrow("看護師不足（医師居るが看護師欠）", unfilledN===0, unfilledN+"件")+
@@ -671,6 +691,34 @@ function generate(auto){
     vrow("同じ曜日で同じ医師×看護師の重複", sameWd===0, sameWd+"件"+(sameWd>0?"（人員・条件上やむを得ない分）":""))+
     `<div style="margin-top:12px;text-align:center"><span class="badge ${healthy?"ok":"warn"}">総合判定：${healthy?"健全":"要確認"}</span>`+
     (R.soft.length?`<span class="legend" style="margin-left:10px">※希望休の充当 ${R.soft.length}件（人員不足時のみ）</span>`:"")+`</div></div>`; }
+
+  // ドライバー検証（管理ページ2モード）
+  if(admin2Mode){
+    let drvShort=0, drvNG=0, drvContract=0, drvSolo=0;
+    for(let di=0; di<NDAY; di++){
+      const pairs=R.schedule[di], drivers=R.dschedule[di];
+      pairs.forEach(([doc,nur],i)=>{
+        const cell=drivers[i]||{am:null,pm:null};
+        ["am","pm"].forEach(half=>{
+          const dn=cell[half];
+          if(dn===null||dn===undefined){ if(doc!=="X" && nur) drvShort++; return; } // 午前/午後それぞれで不足を数える
+          if(isNGDrv(doc,dn)) drvNG++;
+          if(docHas(doc,di,"✓") && NGDRV.some(p=>p[0]==="【物品庫チェック】"&&p[1]===dn)) drvNG++;
+          const isC=docHas(doc,di,"契");
+          if(isC && !CONTRACTDRV.includes(dn)) drvContract++;
+          if(!isC && CONTRACTDRV.includes(dn)) drvContract++;
+        });
+      });
+    }
+    NGDRV.filter(p=>p[0]==="【単独】").forEach(p=>{ if(DRV[p[1]]) DRV[p[1]].av.forEach(v=>{ if(v==="単独") drvSolo++; }); });
+    const drvHealthy = drvShort===0 && drvNG===0 && drvContract===0 && drvSolo===0;
+    html+=`<div class="card"><h2>ドライバー検証（管理ページ2）</h2>`+
+      vrow("ドライバー不足（医師＋看護師いるが運転者なし・午前/午後別）", drvShort===0, drvShort+"件")+
+      vrow("医師×ドライバーNGの割当", drvNG===0, drvNG+"件")+
+      vrow("契約日の割当ルール（契約車は専任のみ／専任は契約車のみ）", drvContract===0, drvContract+"件")+
+      vrow("単独禁止ドライバーの単独設定", drvSolo===0, drvSolo+"件")+
+      `<div style="margin-top:12px;text-align:center"><span class="badge ${drvHealthy?"ok":"warn"}">総合判定：${drvHealthy?"健全":"要確認"}</span></div></div>`;
+  }
 
   // 負荷バー
   const maxLoad=Math.max(1,...Object.values(R.nload));
@@ -732,7 +780,7 @@ function exportExcel(){
   if(typeof XLSX==="undefined"){ alert("Excel出力の準備ができていません。通信環境をご確認のうえ、ページを再読み込みしてください。"); return; }
   const R=solve();
   const CARS="ABCDEFGHIJ".split("");
-  const STANDBY=R.schedule.map((pairs,di)=>{ const used=new Set(pairs.map(p=>p[1]).filter(Boolean)); return R.nurseNames.filter(n=>NUR[n].av[di]==="○"&&!used.has(n)); });
+  const STANDBY=R.schedule.map((pairs,di)=>{ const used=new Set(pairs.map(p=>p[1]).filter(Boolean)); return R.nurseNames.filter(n=>["○","前","後"].includes(NUR[n].av[di])&&!used.has(n)); });
   const INHOUSE=R.schedule.map((pairs,di)=>{ const used=new Set(pairs.map(p=>p[1]).filter(Boolean)); return R.nurseNames.filter(n=>NUR[n].av[di]==="△"&&!used.has(n)); });
   const wb=XLSX.utils.book_new();
   for(let wk=0; wk<NWK; wk++){
@@ -744,7 +792,7 @@ function exportExcel(){
       const row=[CARS[ci]];
       for(let wd=0; wd<5; wd++){
         const di=wk*5+wd, pairs=R.schedule[di];
-        if(ci<pairs.length){ const [doc,nur]=pairs[ci]; row.push(doc+(docHas(doc,di,"◎")?" ◎":"")+(docHas(doc,di,"契")?" 契":"")+(docHas(doc,di,"✓")?" ✓":""), nur||"—", R.dschedule[di][ci]||"—"); }
+        if(ci<pairs.length){ const [doc,nur]=pairs[ci]; const dc=R.dschedule[di][ci]||{am:null,pm:null}; const dstr=(!dc.am&&!dc.pm)?"—":(dc.am===dc.pm?dc.am:`前 ${dc.am||"—"} / 後 ${dc.pm||"—"}`); const dpm=docHas(doc,di,"前")?" 午前":docHas(doc,di,"後")?" 午後":""; const nv=nur&&NUR[nur]?NUR[nur].av[di]:""; const npm=nv==="前"?"（午前）":nv==="後"?"（午後）":""; row.push(doc+(docHas(doc,di,"◎")?" ◎":"")+(docHas(doc,di,"契")?" 契":"")+(docHas(doc,di,"✓")?" ✓":"")+dpm, (nur||"—")+npm, dstr); }
         else if(ci-pairs.length<STANDBY[di].length){ row.push("待機", STANDBY[di][ci-pairs.length], ""); }
         else if(ci-pairs.length-STANDBY[di].length<INHOUSE[di].length){ row.push("内勤", INHOUSE[di][ci-pairs.length-STANDBY[di].length], ""); }
         else { row.push("","",""); }
@@ -856,11 +904,11 @@ function openAdmin2(){
   if(admin2Mode){ document.getElementById("admin2Panel").scrollIntoView({behavior:"smooth"}); return; }
   const p=prompt("管理ページ2のPIN（合言葉）を入力してください");
   if(p===null) return;
-  if(checkPin2(p.trim())){ admin2Mode=true; renderNgDrv(); applyAdmin2Visibility();
+  if(checkPin2(p.trim())){ admin2Mode=true; renderNgDrv(); applyAdmin2Visibility(); generate();
     document.getElementById("admin2Panel").scrollIntoView({behavior:"smooth",block:"start"}); }
   else{ alert("PINが違います。"); }
 }
-function lockAdmin2(){ admin2Mode=false; applyAdmin2Visibility();
+function lockAdmin2(){ admin2Mode=false; applyAdmin2Visibility(); generate();
   if(location.hash) history.replaceState(null,"",location.pathname+location.search); }
 function renderNgDrv(){
   const docNames=Object.keys(DOC), drvNames=Object.keys(DRV);
