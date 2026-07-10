@@ -28,6 +28,14 @@
            background:#F5F8FD;border:1px solid #E5EDF7;border-left:3px solid var(--blue);
            border-radius:8px;padding:10px 13px;}
   .card .hint b{color:var(--navy);}
+  /* 折りたたみの説明 */
+  details.sec-desc{margin:0 0 12px;}
+  details.sec-desc>summary{cursor:pointer;font-size:12.5px;color:var(--blue);font-weight:600;list-style:none;
+           display:inline-flex;align-items:center;gap:6px;padding:2px 0;user-select:none;}
+  details.sec-desc>summary::-webkit-details-marker{display:none;}
+  details.sec-desc>summary::before{content:"▸";font-size:11px;transition:transform .15s;}
+  details.sec-desc[open]>summary::before{transform:rotate(90deg);}
+  details.sec-desc .hint{margin:6px 0 0;}
   table{border-collapse:collapse;width:100%;}
   th,td{border:1px solid #D8DFEA;padding:7px 7px;text-align:center;font-size:13px;}
   thead th{background:var(--navy);color:#fff;font-weight:700;letter-spacing:.02em;}
@@ -40,6 +48,9 @@
   .addrow-sep{width:1px;align-self:stretch;background:#E1E7F0;margin:2px 6px;}
   .del-btn{background:#fff;border:1px solid #E3B5B5;color:var(--red);font-weight:600;}
   .del-btn:hover{background:#FBEDED;border-color:var(--red);}
+  /* クリアは控えめ（小さめ・淡色） */
+  .clr-btn{background:transparent;border:1px solid #E1E7F0;color:#9aa4b2;font-weight:500;font-size:12px;padding:6px 12px;border-radius:8px;}
+  .clr-btn:hover{background:#F6F8FB;color:#c0797a;border-color:#e6c8c8;}
   .addrow select{min-width:120px;}
   .av{cursor:pointer;font-weight:700;user-select:none;min-width:42px;transition:filter .12s,box-shadow .12s;}
   .av:hover{filter:brightness(.95);box-shadow:inset 0 0 0 2px rgba(46,84,150,.35);}
@@ -116,7 +127,13 @@
   /* 横スクロール対応のテーブル枠 */
   .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .tscroll table{min-width:560px;}
-  .tscroll td.rowhdr{position:sticky;left:0;z-index:2;background:var(--grey);box-shadow:1px 0 0 var(--line);}
+  .tscroll td.rowhdr,.tscroll th.rowhdr{position:sticky;left:0;z-index:3;background:var(--grey);box-shadow:1px 0 0 var(--line);}
+  /* 結果表：横幅を詰めて見やすく（列を細く・文字小さめ・ヘッダー固定）*/
+  #result table{min-width:auto;}
+  #result th,#result td{padding:3px 4px;font-size:11.5px;line-height:1.28;}
+  #result td{max-width:96px;word-break:break-word;}
+  #result .rowhdr{padding-left:6px;min-width:34px;}
+  #result td:first-child,#result th:first-child{position:sticky;left:0;z-index:3;background:#EEF2F8;box-shadow:1px 0 0 var(--line);}
   .mhint{display:none;font-size:11.5px;color:#2E5496;margin:0 0 8px;}
   .daterow{display:flex;gap:18px;flex-wrap:wrap;}
   .daterow label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--navy);}
@@ -149,16 +166,15 @@
 
   <div class="card no-print">
     <h2>📅 対象期間</h2>
-    <p class="hint">各週の月曜日の日付を選ぶと、その2週間だけを表示・編集できます。日付を変えると別の2週間に切り替わり、<b>それぞれ独立して</b>作成できます（期間の上限なし・<b>無期限</b>）。触れた期間は「☁ この期間を保存」でまとめて共有保存され、「保存済みの期間…」から呼び出せます。</p>
+    <details class="sec-desc"><summary>説明</summary><p class="hint">カレンダーで<b>いずれかの日</b>を選ぶと、その週の月曜日から<b>2週間</b>を自動で表示・編集できます（何曜日を選んでもその週の月曜にそろえます）。日付を変えると別の2週間に切り替わり、<b>それぞれ独立して</b>作成できます（期間の上限なし・<b>無期限</b>）。触れた期間は「☁ この期間を保存」でまとめて共有保存され、「保存済みの期間…」から呼び出せます。</p></details>
     <div class="daterow">
-      <label>1つ目の週（月）<input type="date" id="wk1Start" onchange="onDateChange()"></label>
-      <label>2つ目の週（月）<input type="date" id="wk2Start" onchange="onDateChange()"></label>
+      <label>対象の週（月）<input type="date" id="wk1Start" onchange="onDateChange()"></label>
     </div>
   </div>
 
   <div class="card no-print">
     <h2>① 医師スケジュール</h2>
-    <p class="hint">セルをタップして設定します。○=稼働 / ◎=処置あり / 契=契約 / ✓=物品庫チェック / 前=午前のみ / 後=午後のみ は<b>複数選択できます</b>（×=休のみ単独）。契約の日は結果表で【契】が付き、契約専任ドライバーだけが割り当てられます。物品庫チェックの日は、医師名の横に✓が付きます。<b>前／後は表示ラベル</b>で、割当は終日1台のまま（結果表に「午前」「午後」と表示）。</p>
+    <details class="sec-desc"><summary>説明</summary><p class="hint">セルをタップして設定します。○=稼働 / ◎=処置あり / 契=契約 / ✓=物品庫チェック / 前=午前のみ / 後=午後のみ は<b>複数選択できます</b>（×=休のみ単独）。契約の日は結果表で【契】が付き、契約専任ドライバーだけが割り当てられます。物品庫チェックの日は、医師名の横に✓が付きます。<b>前／後は表示ラベル</b>で、割当は終日1台のまま（結果表に「午前」「午後」と表示）。</p></details>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="docTbl"></table></div>
     <div class="addrow">
@@ -168,8 +184,8 @@
       <select id="delDocSel"></select>
       <button class="del-btn" onclick="delSel('delDocSel',delDoc)">－ 削除</button>
       <span class="addrow-sep"></span>
-      <button class="del-btn" id="clearDoc0" onclick="clearDoc(0)">🧹 1週目クリア</button>
-      <button class="del-btn" id="clearDoc1" onclick="clearDoc(1)">🧹 2週目クリア</button>
+      <button class="clr-btn" id="clearDoc0" onclick="clearDoc(0)">🧹 1週目クリア</button>
+      <button class="clr-btn" id="clearDoc1" onclick="clearDoc(1)">🧹 2週目クリア</button>
     </div>
     <div class="addrow" style="margin-top:6px">
       <button class="cloud" onclick="saveSection('doc')">☁ この医師表を保存</button>
@@ -180,7 +196,7 @@
 
   <div class="card no-print">
     <h2>② 看護師</h2>
-    <p class="hint">セルをタップすると選択メニューが開きます（○=稼働 / 前=午前のみ / 後=午後のみ / ×=休 / △=内勤）。前／後は<b>表示ラベル</b>で、割当は終日ベースのまま（結果表に「午前」「午後」と表示）。</p>
+    <details class="sec-desc"><summary>説明</summary><p class="hint">セルをタップすると選択メニューが開きます（○=稼働 / 前=午前のみ / 後=午後のみ / ×=休 / △=内勤）。前／後は<b>表示ラベル</b>で、割当は終日ベースのまま（結果表に「午前」「午後」と表示）。</p></details>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="nurTbl"></table></div>
     <div class="addrow">
@@ -190,8 +206,8 @@
       <select id="delNurSel"></select>
       <button class="del-btn" onclick="delSel('delNurSel',delNurse)">－ 削除</button>
       <span class="addrow-sep"></span>
-      <button class="del-btn" id="clearNur0" onclick="clearNur(0)">🧹 1週目クリア</button>
-      <button class="del-btn" id="clearNur1" onclick="clearNur(1)">🧹 2週目クリア</button>
+      <button class="clr-btn" id="clearNur0" onclick="clearNur(0)">🧹 1週目クリア</button>
+      <button class="clr-btn" id="clearNur1" onclick="clearNur(1)">🧹 2週目クリア</button>
     </div>
     <div class="addrow" style="margin-top:6px">
       <button class="cloud" onclick="saveSection('nur')">☁ この看護師表を保存</button>
@@ -202,7 +218,7 @@
 
   <div class="card no-print">
     <h2>③ ドライバー</h2>
-    <p class="hint">セルをタップすると選択メニューが開きます（◯=終日稼働 / 前=午前のみ / 後=午後のみ / △=内勤 / 単独 / ×=休）。稼働の人が各車の運転担当に割り当てられ、<b>午前と午後は別々に割り当て</b>ます（原則は終日同じ人。不在時のみ交代）。△＝内勤・単独は結果表の下の「I 内勤 / J 単独」に表示されます。2週間ぶん、日ごとに設定できます。</p>
+    <details class="sec-desc"><summary>説明</summary><p class="hint">セルをタップすると選択メニューが開きます（◯=終日稼働 / 前=午前のみ / 後=午後のみ / △=内勤 / 単独 / ×=休）。稼働の人が各車の運転担当に割り当てられ、<b>午前と午後は別々に割り当て</b>ます（原則は終日同じ人。不在時のみ交代）。△＝内勤・単独は結果表の下の「I 内勤 / J 単独」に表示されます。2週間ぶん、日ごとに設定できます。</p></details>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="drvTbl"></table></div>
     <div class="addrow">
@@ -212,8 +228,8 @@
       <select id="delDrvSel"></select>
       <button class="del-btn" onclick="delSel('delDrvSel',delDriver)">－ 削除</button>
       <span class="addrow-sep"></span>
-      <button class="del-btn" id="clearDrv0" onclick="clearDrv(0)">🧹 1週目クリア</button>
-      <button class="del-btn" id="clearDrv1" onclick="clearDrv(1)">🧹 2週目クリア</button>
+      <button class="clr-btn" id="clearDrv0" onclick="clearDrv(0)">🧹 1週目クリア</button>
+      <button class="clr-btn" id="clearDrv1" onclick="clearDrv(1)">🧹 2週目クリア</button>
     </div>
     <div class="addrow" style="margin-top:6px">
       <button class="cloud" onclick="saveSection('drv')">☁ このドライバー表を保存</button>
@@ -222,7 +238,7 @@
     </div>
     <div style="margin-top:16px;border-top:1px dashed #cfcfcf;padding-top:14px">
       <b style="font-size:13px;">待機ドライバーの手動組み合わせ（医師 × ドライバー）</b>
-      <p class="hint">特定の医師にこのドライバーを充てたいときに使います（日ごとに設定）。割当の優先順位は<b>契約 ＞ 物品チェック ＞ 待機ドライバー</b>。契約車・物品チェック車が先に確保され、待機の指名はそのルール内で反映されます（契約や物品チェックで必要な人は待機指名より優先）。</p>
+      <details class="sec-desc"><summary>説明</summary><p class="hint">特定の医師にこのドライバーを充てたいときに使います（日ごとに設定）。割当の優先順位は<b>契約 ＞ 物品チェック ＞ 待機ドライバー</b>。契約車・物品チェック車が先に確保され、待機の指名はそのルール内で反映されます（契約や物品チェックで必要な人は待機指名より優先）。</p></details>
       <div class="ng-list" id="manualDrvList"></div>
       <div class="addrow">
         <select id="manualDrvDay"></select>
@@ -317,11 +333,11 @@
 const WD=["月","火","水","木","金"];
 const NWK=2, NDAY=NWK*5, NURSE_BIAS=1.5;
 const DEFAULT={
-  docDays:{ "寺田":[0,2,4],"鈴木":[0,1,2,3,4],"守屋":[0,2,3,4],"高宮":[0,1,2,3],"友佳子":[0,1,2,3,4],
-            "牧野":[1,2,3,4],"土橋":[1],"飯島":[1],"田中":[1],"佐々木":[2],"長岡":[4],"X":[0,1,2,3,4] },
+  docDays:{ "寺田":[0,2,4],"鈴木":[0,1,2,3,4],"守屋":[0,2,3,4],"髙宮":[0,1,2,3],
+            "牧野":[1,2,3,4],"土橋":[1],"佐々木":[1],"飯島":[],"田中":[],"長岡":[4],"友佳子":[0,1,2,3,4],"X":[0,1,2,3,4] },
   nurses:[["佐藤",0],["武田",0],["笹沼",0],["大畑",0],["松田",0],["PA萩原",1],["PA佐藤",1]],
   drivers:["佐々木","柳井","渡邊","奥津","八木澤","岩﨑","中村","北岡"],
-  navail:{"PA萩原|3":"△"},
+  navail:{},
   ng:[["鈴木","PA萩原"],["鈴木","PA佐藤"],["寺田","武田"],["牧野","笹沼"],["牧野","PA萩原"],["牧野","PA佐藤"]],
   paPref:["友佳子"],
   ngDrv:[["【物品庫チェック】","北岡"],["【単独】","北岡"]], // 医師×ドライバーNG（【条件】も指定可。管理ページ2で編集）
@@ -339,6 +355,7 @@ function addDays(d,n){ const x=new Date(d.getTime()); x.setDate(x.getDate()+n); 
 function fmtMD(d){ return (d.getMonth()+1)+"/"+d.getDate(); }
 function nextMonday(from){ const d=new Date(from.getFullYear(),from.getMonth(),from.getDate());
   const diff=(8-d.getDay())%7||7; return addDays(d,diff); } // 今日以降の次の月曜
+function mondayOf(d){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); const g=x.getDay(); return addDays(x, g===0?-6:1-g); } // その日が属する週の月曜
 function dayDate(wk,i){ const s=parseISO(WKSTART[wk]); return s?addDays(s,i):null; } // wk週のi曜(月=0)
 function weekTitle(wk){ const s=parseISO(WKSTART[wk]);
   return s? `${fmtMD(s)}〜${fmtMD(addDays(s,4))}` : `（日付未設定）`; }
@@ -350,26 +367,21 @@ function switchPeriod(wk){
   const key=wk[0]||"unknown";
   const src=YEARBUF[key]||((PERIODS_CACHE[key]&&PERIODS_CACHE[key].DOC)?PERIODS_CACHE[key]:null);
   if(src){ applyState(src); } // その期間の保存データがあれば表示
-  else { // 新規期間：メンバー・ルールは残し、入力（シフト）は空(×)で開始（前後の週には反映しない）
-    Object.keys(DOC).forEach(n=>DOC[n]=DOC[n].map(_=>"×"));
-    Object.keys(NUR).forEach(n=>NUR[n].av=NUR[n].av.map(_=>"×"));
-    Object.keys(DRV).forEach(n=>DRV[n].av=DRV[n].av.map(_=>"×"));
-    MANUALDRV=[];
-  }
+  else { applyBaseSchedule(); } // 新規期間：ベース（既定の勤務パターン）から開始。ルールは現状維持
   WKSTART=wk.slice(); CUR_PKEY=key;
   renderDates(); renderInputs(); generate(true);
 }
 function onDateChange(){
   stashCurrent(); // 表示中の期間を退避してから切り替え
-  const a=document.getElementById("wk1Start").value, b=document.getElementById("wk2Start").value;
-  let wk=WKSTART.slice(); if(a)wk[0]=a; if(b)wk[1]=b;
-  if(wk[0] && (!wk[1] || parseISO(wk[1])<=parseISO(wk[0]))) wk[1]=isoOf(addDays(parseISO(wk[0]),7));
+  const a=document.getElementById("wk1Start").value;
+  let wk=WKSTART.slice(); if(a) wk[0]=isoOf(mondayOf(parseISO(a))); // 選んだ日→その週の月曜にそろえる
+  if(wk[0]) wk[1]=isoOf(addDays(parseISO(wk[0]),7)); // 翌週は自動
   switchPeriod(wk);
 }
 function wkClearLabel(wk){ const a=dayDate(wk,0), b=dayDate(wk,4); return a&&b ? `🧹 ${fmtMD(a)}〜${fmtMD(b)}をクリア` : `🧹 ${wk+1}週目クリア`; }
 function renderDates(){
   document.getElementById("wk1Start").value=WKSTART[0];
-  document.getElementById("wk2Start").value=WKSTART[1];
+  const w2=document.getElementById("wk2Start"); if(w2) w2.value=WKSTART[1];
   ["Doc","Nur","Drv"].forEach(t=>[0,1].forEach(wk=>{ const b=document.getElementById("clear"+t+wk); if(b) b.textContent=wkClearLabel(wk); }));
 }
 
@@ -389,6 +401,13 @@ function loadDefault(){
   DRV={}; // name -> {av:[10]}  ドライバー（◯/契約/チェック/準備/単独/×）
   for(const nm of DEFAULT.drivers){ DRV[nm]={av:[0,1,2,3,4,5,6,7,8,9].map(_=> "◯")}; }
   NG=clone(DEFAULT.ng); PAPREF=clone(DEFAULT.paPref); NGDRV=clone(DEFAULT.ngDrv||[]); CONTRACTDRV=clone(DEFAULT.contractDrv||[]); MANUALDRV=[];
+}
+/* 新規期間用：メンバー＋シフトはベース（DEFAULT）に。ルール（NG/契約等）は現状維持 */
+function applyBaseSchedule(){
+  DOC={}; for(const n in DEFAULT.docDays){ DOC[n]=[0,1,2,3,4,5,6,7,8,9].map(di=>DEFAULT.docDays[n].includes(di%5)?"○":"×"); }
+  NUR={}; for(const [nm,pa] of DEFAULT.nurses){ NUR[nm]={pa:!!pa, av:[0,1,2,3,4,5,6,7,8,9].map(di=>DEFAULT.navail[nm+"|"+di] ?? DEFAULT.navail[nm+"|"+(di%5)] ?? "○")}; }
+  DRV={}; for(const nm of DEFAULT.drivers){ DRV[nm]={av:[0,1,2,3,4,5,6,7,8,9].map(_=>"◯")}; }
+  MANUALDRV=[];
 }
 
 /* ===== 入力UI ===== */
@@ -444,7 +463,7 @@ function renderManualDrv(){
   if(docSel) docSel.innerHTML=Object.keys(DOC).map(d=>`<option>${d}</option>`).join("");
   if(drvSel) drvSel.innerHTML=Object.keys(DRV).map(d=>`<option>${d}</option>`).join("");
   const list=document.getElementById("manualDrvList");
-  if(list) list.innerHTML=MANUALDRV.map((m,i)=>`<span class="tag"><b>${dayOptLabel(m.di)}</b>：${m.doc}×${m.drv}<span onclick="MANUALDRV.splice(${i},1);renderManualDrv();generate(true)">×</span></span>`).join("")||"<span class='hint'>なし</span>";
+  if(list) list.innerHTML=MANUALDRV.map((m,i)=>`<span class="tag"><b>${dayOptLabel(m.di)}</b>：${m.doc}×${m.drv}<span onclick="MANUALDRV.splice(${i},1);renderManualDrv();generate(true)">×</span></span>`).join("")||"<span class='hint' style='margin:0'>手動の組み合わせは未設定です（必要な日だけ下で追加できます）</span>";
 }
 function addManualDrv(){
   const di=+document.getElementById("manualDrvDay").value;
@@ -809,7 +828,7 @@ function generate(auto){
     html+=`</tr><tr><td class="rowhdr" style="text-align:center">待機<br><small>ドライバー</small></td>`;
     for(let wd=0;wd<5;wd++){ const di=wk*5+wd,sp=wd<4?"daysep":""; html+=`<td colspan="3" class="${sp}" style="text-align:left;padding-left:8px;background:#FFF6E0;color:#8a6d00">${drvStandby(di).join("、")||"—"}</td>`; }
     html+=`</tr>`;
-    html+="</tbody></table></div><div class='legend'>◎=処置あり ／ 【契】=契約 ／ ✓=物品庫チェック（医師名に表示）／ 3列目=ドライバー（「前 ○○／後 ○○」は午前と午後で担当交代・1名のみは終日同じ・「空き」=医師が午前/午後のみで反対の時間帯は訪問なし＝待機）／ I=内勤・J=単独・待機=稼働だが乗車なし＝余ったドライバー（(午前)(午後)は片方だけあき）／ 背景：青=医師 / 緑=常勤看護師 / 紫=PA / —=看護師不足 / 待機=出勤可だが乗車なし / 内勤=△指定で訪問車に乗らず内勤（人手不足のX車のみ応援可）</div></div>";
+    html+="</tbody></table></div></div>";
   }
 
   // 検証
