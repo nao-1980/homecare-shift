@@ -149,10 +149,12 @@
 
   <div class="card no-print">
     <h2>📅 対象期間</h2>
-    <p class="hint">各週の月曜日の日付を入れてください。曜日の見出しに日付が表示されます。</p>
+    <p class="hint">1週目の月曜日の日付を入れてください。<b>2週目は自動で翌週</b>になります（常に連続した2週間）。「◀ 前の週 / 次の週 ▶」で<b>1週ずつ</b>前後に動かせます。</p>
     <div class="daterow">
-      <label>1週目（月）<input type="date" id="wk1Start" onchange="onDateChange()"></label>
-      <label>2週目（月）<input type="date" id="wk2Start" onchange="onDateChange()"></label>
+      <button class="sec" onclick="shiftWeeks(-1)">◀ 前の週</button>
+      <label>1週目（月）<input type="date" id="wk1Start" onchange="onDateChange('wk1')"></label>
+      <label>2週目（月）<input type="date" id="wk2Start" onchange="onDateChange('wk2')"></label>
+      <button class="sec" onclick="shiftWeeks(1)">次の週 ▶</button>
     </div>
   </div>
 
@@ -167,6 +169,8 @@
       <span class="addrow-sep"></span>
       <select id="delDocSel"></select>
       <button class="del-btn" onclick="delSel('delDocSel',delDoc)">－ 削除</button>
+      <span class="addrow-sep"></span>
+      <button class="del-btn" onclick="clearDoc()">🧹 全クリア</button>
     </div>
   </div>
 
@@ -181,6 +185,8 @@
       <span class="addrow-sep"></span>
       <select id="delNurSel"></select>
       <button class="del-btn" onclick="delSel('delNurSel',delNurse)">－ 削除</button>
+      <span class="addrow-sep"></span>
+      <button class="del-btn" onclick="clearNur()">🧹 全クリア</button>
     </div>
   </div>
 
@@ -195,6 +201,8 @@
       <span class="addrow-sep"></span>
       <select id="delDrvSel"></select>
       <button class="del-btn" onclick="delSel('delDrvSel',delDriver)">－ 削除</button>
+      <span class="addrow-sep"></span>
+      <button class="del-btn" onclick="clearDrv()">🧹 全クリア</button>
     </div>
     <div style="margin-top:16px;border-top:1px dashed #cfcfcf;padding-top:14px">
       <b style="font-size:13px;">待機ドライバーの手動組み合わせ（医師 × ドライバー）</b>
@@ -320,12 +328,17 @@ function weekTitle(wk){ const s=parseISO(WKSTART[wk]);
 function dayLabel(wk,i){ const dt=dayDate(wk,i);
   return dt? `${WD[i]}<br><small style="font-weight:400;opacity:.85">${fmtMD(dt)}</small>` : `${WD[i]}`; }
 function initDates(){ const m1=nextMonday(new Date()); WKSTART=[isoOf(m1), isoOf(addDays(m1,7))]; }
-function onDateChange(){
+function onDateChange(src){
   const a=document.getElementById("wk1Start").value, b=document.getElementById("wk2Start").value;
-  if(a)WKSTART[0]=a; if(b)WKSTART[1]=b;
-  // 2週目が空 or 1週目と同じ以前なら 1週目+7 に自動補正
-  if(WKSTART[0] && (!WKSTART[1] || parseISO(WKSTART[1])<=parseISO(WKSTART[0])))
-    WKSTART[1]=isoOf(addDays(parseISO(WKSTART[0]),7));
+  // 2週間は常に連続（1週ずつ）。基準にした週から、もう片方を自動で1週ずらす
+  if(src==="wk2" && b){ WKSTART[1]=b; WKSTART[0]=isoOf(addDays(parseISO(b),-7)); }
+  else if(a){ WKSTART[0]=a; WKSTART[1]=isoOf(addDays(parseISO(a),7)); }
+  renderDates(); renderInputs(); generate(true);
+}
+function shiftWeeks(n){ // カレンダーを1週ずつ前後に動かす
+  if(!WKSTART[0]) return;
+  WKSTART[0]=isoOf(addDays(parseISO(WKSTART[0]),n*7));
+  WKSTART[1]=isoOf(addDays(parseISO(WKSTART[0]),7));
   renderDates(); renderInputs(); generate(true);
 }
 function renderDates(){
@@ -437,6 +450,10 @@ function addDoc(){
   el.value=""; renderInputs(); generate(true);
 }
 function delDoc(n){ if(!confirm(n+" を削除しますか？"))return; delete DOC[n]; NG=NG.filter(p=>p[0]!==n); PAPREF=PAPREF.filter(d=>d!==n); NGDRV=NGDRV.filter(p=>p[0]!==n); MANUALDRV=MANUALDRV.filter(m=>m.doc!==n); renderInputs(); generate(true); }
+/* ===== 全クリア（①②③・実行前に確認）===== */
+function clearDoc(){ if(!confirm("①医師スケジュールの入力を全部クリアします（全員を「×＝休」に）。メンバー（名前）は残ります。よろしいですか？"))return; Object.keys(DOC).forEach(n=>DOC[n]=DOC[n].map(_=>"×")); renderInputs(); generate(true); }
+function clearNur(){ if(!confirm("②看護師の入力を全部クリアします（全員を「×＝休」に）。メンバー（名前）は残ります。よろしいですか？"))return; Object.keys(NUR).forEach(n=>NUR[n].av=NUR[n].av.map(_=>"×")); renderInputs(); generate(true); }
+function clearDrv(){ if(!confirm("③ドライバーの入力を全部クリアします（全員を「×＝休」に）。メンバー（名前）と待機の手動組み合わせは残ります。よろしいですか？"))return; Object.keys(DRV).forEach(n=>DRV[n].av=DRV[n].av.map(_=>"×")); renderInputs(); generate(true); }
 function cycDoc(n,wd){ DOC[n][wd]=DOC_CYCLE[DOC[n][wd]]; renderInputs(); }
 function cycNur(n,di){ NUR[n].av[di]=NUR_CYCLE[NUR[n].av[di]]; renderInputs(); }
 const PICK_OPTS={doc:[["○","稼働"],["◎","処置あり"],["契約","契約"],["×","休"]],nur:[["○","稼働"],["前","午前のみ"],["後","午後のみ"],["×","休"],["△","内勤"]],
