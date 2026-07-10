@@ -600,12 +600,24 @@ function isNG(doc,nur){ return NG.some(p=>p[0]===doc&&p[1]===nur); }
 function isNGDrv(doc,drv){ return NGDRV.some(p=>p[0]===doc&&p[1]===drv); }
 function dravail(name,di){ return DRV[name]?DRV[name].av[di]:"×"; } // 週別 ◯/△/×
 
-function solve(){
+/* 一時的にグローバルを差し替えて、指定した保存状態の割当だけ取得（再帰防止に noSeed=true）*/
+function solveState(st,noSeed){ const bak={DOC,NUR,DRV,NG,PAPREF,NGDRV,CONTRACTDRV,MANUALDRV,WKSTART};
+  try{ applyState(st); return solve(noSeed); }
+  finally{ DOC=bak.DOC;NUR=bak.NUR;DRV=bak.DRV;NG=bak.NG;PAPREF=bak.PAPREF;NGDRV=bak.NGDRV;CONTRACTDRV=bak.CONTRACTDRV;MANUALDRV=bak.MANUALDRV;WKSTART=bak.WKSTART; } }
+/* 同じ月（開始週の年月）に属する、今と別の期間の保存状態を集める */
+function otherSameMonthStates(){ const curKey=WKSTART[0]||"", curMon=curKey.slice(0,7); if(!curMon) return [];
+  const src=Object.assign({},PERIODS_CACHE,YEARBUF);
+  return Object.keys(src).filter(k=>k!==curKey && k.slice(0,7)===curMon && src[k]&&src[k].DOC).map(k=>src[k]); }
+function solve(noSeed){
   const docLabels=Object.keys(DOC), nurseNames=Object.keys(NUR);
   const paSet=new Set(nurseNames.filter(n=>NUR[n].pa));
   const nload={}; nurseNames.forEach(n=>nload[n]=0);
   let pairCnt={}; // 週内の同ペア回数 `${doc}|${n}`（週ごとにリセット）
-  const wdPair={}; // 曜日別の同ペア回数 `${doc}|${曜日}|${n}`（週をまたいでリセットしない）
+  const wdPair={}; // 曜日別の同ペア回数 `${doc}|${曜日}|${n}`（週をまたがない＋同月内の他期間からも加算）
+  if(!noSeed){ // 同月内の他の期間の割当を種として反映（1ヶ月を通して同じ曜日に同じ医師×看護師を避ける）
+    otherSameMonthStates().forEach(st=>{ let Rk; try{ Rk=solveState(st,true); }catch(e){ return; }
+      Rk.schedule.forEach((pairs,di)=>{ const w=di%5; pairs.forEach(p=>{ if(p[1]) wdPair[p[0]+"|"+w+"|"+p[1]]=(wdPair[p[0]+"|"+w+"|"+p[1]]||0)+1; }); }); });
+  }
   const schedule=[], unfilled=[], soft=[];
   // ドライバー割当用
   const dload={}; Object.keys(DRV).forEach(n=>dload[n]=0);
@@ -640,15 +652,15 @@ function solve(){
         elig.sort((a,b)=>{
           const na=naik(a)-naik(b); if(na!==0)return na;
           const pa=(paSet.has(a)?1:0)-(paSet.has(b)?1:0); if(pa!==0)return pa; // 常勤優先
-          const sw=swd(a)-swd(b); if(sw!==0)return sw; // 同じ曜日の同ペア回避
-          const pr=pc(a)-pc(b); if(pr!==0)return pr;
+          const pr=pc(a)-pc(b); if(pr!==0)return pr;   // ①1週間で同じ医師につかない
+          const sw=swd(a)-swd(b); if(sw!==0)return sw; // ②同じ曜日で同じ医師につかない
           return nload[a]-nload[b];
         });
       }else if(PAPREF.includes(doc)){
         elig.sort((a,b)=>{
           const na=naik(a)-naik(b); if(na!==0)return na;
-          const sw=swd(a)-swd(b); if(sw!==0)return sw; // ①同じ曜日の同ペア回避
-          const pr=pc(a)-pc(b); if(pr!==0)return pr;   // ②週内の同ペア重複を回避
+          const pr=pc(a)-pc(b); if(pr!==0)return pr;   // ①1週間で同じ医師につかない（週内の同ペア回避）
+          const sw=swd(a)-swd(b); if(sw!==0)return sw; // ②同じ曜日で同じ医師につかない
           const ea=paSet.has(a)?0:NURSE_BIAS;          // ③PA優先
           const eb=paSet.has(b)?0:NURSE_BIAS;
           if(ea!==eb)return ea-eb;
@@ -657,8 +669,8 @@ function solve(){
       }else{
         elig.sort((a,b)=>{
           const na=naik(a)-naik(b); if(na!==0)return na;
-          const sw=swd(a)-swd(b); if(sw!==0)return sw; // ①同じ曜日の同ペア回避
-          const pr=pc(a)-pc(b); if(pr!==0)return pr;   // ②週内の同ペア重複を回避
+          const pr=pc(a)-pc(b); if(pr!==0)return pr;   // ①1週間で同じ医師につかない（週内の同ペア回避）
+          const sw=swd(a)-swd(b); if(sw!==0)return sw; // ②同じ曜日で同じ医師につかない
           return nload[a]-nload[b];                    // ③負荷分散
         });
       }
@@ -887,7 +899,7 @@ function generate(auto){
   html+=`</div>`;
 
   document.getElementById("result").innerHTML=html;
-  if(!auto) window.scrollTo({top:document.getElementById("result").offsetTop-10,behavior:"smooth"});
+  // シフト作成後は自動スクロールしない（今の位置のまま）
 }
 function vrow(label,ok,detail){
   return `<div class="vrow"><span>${label}</span><span><span class="badge ${ok?"ok":"warn"}">${ok?"OK":"要修正"}</span> <small style="color:#888">${detail}</small></span></div>`;
