@@ -602,52 +602,64 @@ function solve(){
     }
     const daySorted=docs.slice().sort((a,b)=>(({"友佳子":1,"X":2}[a]||0))-(({"友佳子":1,"X":2}[b]||0))).map(d=>[d,assign[d]]);
     schedule.push(daySorted);
-    // ===== ドライバー割当（優先順位：契約 ＞ 物品チェック ＞ 待機(手動指名) ＞ 通常。午前/午後別・◯/前/後の稼働）=====
-    // 各車 {am, pm}。午後は原則 午前と同じ人を続けて割り当て（不在時のみ交代）
+    // ===== ドライバー割当（優先順位：契約 ＞ 物品チェック ＞ 待機(手動指名) ＞ 通常）=====
+    // なるべく1日同じ人。午前だけの人がいて足りない分の調整は、後回しのX・友佳子の車に寄せる。
     const dayDrivers=daySorted.map(()=>({am:null,pm:null}));
-    ["am","pm"].forEach(half=>{
-      const wantVal = half==="am" ? "前" : "後";
-      const availDrv=Object.keys(DRV).filter(n=>{ const a=dravail(n,di); return a==="◯"||a===wantVal; });
-      const usedDrv=new Set();
-      const worksHalf = doc => half==="am" ? !docHas(doc,di,"後") : !docHas(doc,di,"前");
-      // 優先順位：契約(1) ＞ 物品チェック(2) ＞ 待機/手動指名(3) ＞ 通常(4)。上位から車を確定していく
-      const prio = ci => { const doc=daySorted[ci][0];
-        if(docHas(doc,di,"契")) return 1;
-        if(docHas(doc,di,"✓")) return 2;
-        if(MANUALDRV.some(m=>m.di===di&&m.doc===doc)) return 3;
-        return 4; };
-      const order = daySorted.map((_,ci)=>ci).filter(ci=>worksHalf(daySorted[ci][0])).sort((a,b)=>(prio(a)-prio(b))||(a-b));
-      order.forEach(ci=>{
-        const [doc,nur]=daySorted[ci];
-        if(dayDrivers[ci][half]) return; // 医師が午前/午後のみで反対の時間帯は空き（worksHalfで除外済み）
-        const isContract=docHas(doc,di,"契");
-        const elig=availDrv.filter(dn=>{
-          if(usedDrv.has(dn)||isNGDrv(doc,dn)) return false;
-          if(docHas(doc,di,"✓") && NGDRV.some(p=>p[0]==="【物品庫チェック】"&&p[1]===dn)) return false; // 物品庫チェックの日は付けない
-          if(isContract){ if(!CONTRACTDRV.includes(dn)) return false; } // 契約の車は契約専任ドライバーのみ（契約専任は契約以外の車にも付ける）
-          return true;
-        });
-        if(elig.length===0){ return; } // 割当なし（null）
-        const man=MANUALDRV.find(m=>m.di===di&&m.doc===doc); // 待機ドライバーの手動指名（契約・物品チェックのルール内で尊重）
-        let pk;
-        if(man && elig.includes(man.drv)){ pk=man.drv; }
-        else {
-          const amDrv=dayDrivers[ci].am; // 午後は午前と同じ人を優先（継続）
-          const dswd=dn=>dWdPair[doc+"|"+(di%5)+"|"+dn]||0;
-          const dpc=dn=>dPairCnt[doc+"|"+dn]||0;
-          elig.sort((a,b)=>{
-            if(half==="pm"){ const ca=(a===amDrv?0:1), cb=(b===amDrv?0:1); if(ca!==cb) return ca-cb; }
-            const sw=dswd(a)-dswd(b); if(sw!==0)return sw;
-            const p=dpc(a)-dpc(b); if(p!==0)return p;
-            return dload[a]-dload[b];
-          });
-          pk=elig[0];
-        }
-        usedDrv.add(pk); dload[pk]++;
-        dPairCnt[doc+"|"+pk]=(dPairCnt[doc+"|"+pk]||0)+1;
-        dWdPair[doc+"|"+(di%5)+"|"+pk]=(dWdPair[doc+"|"+(di%5)+"|"+pk]||0)+1;
-        dayDrivers[ci][half]=pk;
+    const worksHalfF = (doc,half) => half==="am" ? !docHas(doc,di,"後") : !docHas(doc,di,"前");
+    const worksBoth = doc => !docHas(doc,di,"前") && !docHas(doc,di,"後"); // 終日訪問（午前/午後の指定なし）
+    const prio = ci => { const doc=daySorted[ci][0];
+      if(docHas(doc,di,"契")) return 1;
+      if(docHas(doc,di,"✓")) return 2;
+      if(MANUALDRV.some(m=>m.di===di&&m.doc===doc)) return 3;
+      return 4; };
+    const eligFor = (ci,half,usedDrv) => { const doc=daySorted[ci][0], isContract=docHas(doc,di,"契"), wantVal=half==="am"?"前":"後";
+      return Object.keys(DRV).filter(dn=>{
+        const a=dravail(dn,di); if(!(a==="◯"||a===wantVal)) return false;
+        if(usedDrv.has(dn)||isNGDrv(doc,dn)) return false;
+        if(docHas(doc,di,"✓") && NGDRV.some(p=>p[0]==="【物品庫チェック】"&&p[1]===dn)) return false; // 物品庫チェックは付けない
+        if(isContract && !CONTRACTDRV.includes(dn)) return false; // 契約車は契約専任のみ（専任は契約以外にも付ける）
+        return true;
       });
+    };
+    const pickAuto = (ci,half,elig) => { const doc=daySorted[ci][0], amDrv=dayDrivers[ci].am;
+      const dswd=dn=>dWdPair[doc+"|"+(di%5)+"|"+dn]||0, dpc=dn=>dPairCnt[doc+"|"+dn]||0;
+      return elig.slice().sort((a,b)=>{
+        // 終日車には終日(◯)ドライバーを優先＝午前だけの人を終日車に付けない（分割を減らす）
+        if(worksBoth(doc)){ const fa=dravail(a,di)==="◯"?0:1, fb=dravail(b,di)==="◯"?0:1; if(fa!==fb) return fa-fb; }
+        if(half==="pm"){ const ca=(a===amDrv?0:1), cb=(b===amDrv?0:1); if(ca!==cb) return ca-cb; }
+        const sw=dswd(a)-dswd(b); if(sw!==0)return sw;
+        const p=dpc(a)-dpc(b); if(p!==0)return p;
+        return dload[a]-dload[b];
+      })[0];
+    };
+    const commit = (ci,half,pk) => { const doc=daySorted[ci][0];
+      dayDrivers[ci][half]=pk; dload[pk]++;
+      dPairCnt[doc+"|"+pk]=(dPairCnt[doc+"|"+pk]||0)+1;
+      dWdPair[doc+"|"+(di%5)+"|"+pk]=(dWdPair[doc+"|"+(di%5)+"|"+pk]||0)+1;
+    };
+    // ---- 午前 ----
+    const usedAm=new Set();
+    daySorted.map((_,ci)=>ci).filter(ci=>worksHalfF(daySorted[ci][0],"am")).sort((a,b)=>(prio(a)-prio(b))||(a-b)).forEach(ci=>{
+      const elig=eligFor(ci,"am",usedAm); if(!elig.length) return;
+      const man=MANUALDRV.find(m=>m.di===di&&m.doc===daySorted[ci][0]);
+      const pk=(man&&elig.includes(man.drv))?man.drv:pickAuto(ci,"am",elig);
+      usedAm.add(pk); commit(ci,"am",pk);
+    });
+    // ---- 午後：まず午前と同じ人で継続 → 埋まらない車だけ余ったドライバーで補充 ----
+    const usedPm=new Set();
+    const pmOrder=daySorted.map((_,ci)=>ci).filter(ci=>worksHalfF(daySorted[ci][0],"pm")).sort((a,b)=>(prio(a)-prio(b))||(a-b));
+    pmOrder.forEach(ci=>{ // Pass1: 継続（午前と同じ人＝手動指名があればそれ）
+      const man=MANUALDRV.find(m=>m.di===di&&m.doc===daySorted[ci][0]);
+      const prefer=(man&&DRV[man.drv])?man.drv:dayDrivers[ci].am;
+      if(!prefer||usedPm.has(prefer)) return;
+      if(eligFor(ci,"pm",usedPm).includes(prefer)){ usedPm.add(prefer); commit(ci,"pm",prefer); }
+    });
+    pmOrder.forEach(ci=>{ // Pass2: 継続できなかった車を余ったドライバーで補充
+      if(dayDrivers[ci].pm) return;
+      const elig=eligFor(ci,"pm",usedPm); if(!elig.length) return;
+      const man=MANUALDRV.find(m=>m.di===di&&m.doc===daySorted[ci][0]);
+      const pk=(man&&elig.includes(man.drv))?man.drv:pickAuto(ci,"pm",elig);
+      usedPm.add(pk); commit(ci,"pm",pk);
     });
     dschedule.push(dayDrivers);
   }
