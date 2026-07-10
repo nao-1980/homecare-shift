@@ -355,6 +355,7 @@ function loadDefault(){
 const DOC_CYCLE={"○":"×","×":"○"};
 const NUR_CYCLE={"○":"×","×":"△","△":"○"};
 function cls(v){return v==="○"?"on":v==="×"?"off":v==="◎"?"chu":v==="契約"?"keiyaku":v==="希"?"kibo":v==="前"?"am":v==="後"?"pm":"nai";}
+function paBreak(n){ return (n&&n.indexOf("PA")===0) ? "PA<br>"+n.slice(2) : n; } // PA看護師は「PA」で改行し名前を下段に
 function dcls(v){return ({"◯":"on","前":"am","後":"pm","△":"nai","単独":"drv4","×":"off"})[v]||"on";}
 function docCellClass(v){ if(v==="×"||!v)return "off"; if(v.indexOf("◎")>=0)return "chu"; if(v.indexOf("契")>=0)return "keiyaku"; return "on"; }
 
@@ -718,7 +719,7 @@ function generate(auto){
           const dpm=docHas(doc,di,"前")?" <small>午前</small>":docHas(doc,di,"後")?" <small>午後</small>":"";
           const marks=(treat?" ◎":"")+(contract?" 【契】":"")+(chk?" ✓":"")+dpm;
           html+=`<td class="doc${treat?" treat":contract?" contract":""}">${doc}${marks}</td>`;
-          if(nur){const c=R.paSet.has(nur)?"nur-pa":"nur-jp"; const nv=NUR[nur]?NUR[nur].av[di]:""; const npm=nv==="前"?" <small>午前</small>":nv==="後"?" <small>午後</small>":""; html+=`<td class="${c}">${nur}${npm}</td>`;}
+          if(nur){const c=R.paSet.has(nur)?"nur-pa":"nur-jp"; const nv=NUR[nur]?NUR[nur].av[di]:""; const npm=nv==="前"?" <small>午前</small>":nv==="後"?" <small>午後</small>":""; html+=`<td class="${c}">${paBreak(nur)}${npm}</td>`;}
           else html+=`<td class="nur-no">—</td>`;
           const drv=R.dschedule[di][ci]||{am:null,pm:null};
           const amEmpty=docHas(doc,di,"後"), pmEmpty=docHas(doc,di,"前"); // 医師が午後/午前のみ＝反対の時間帯は空き（待機）
@@ -728,11 +729,11 @@ function generate(auto){
         }else if(ci-pairs.length < STANDBY[di].length){
           const nur=STANDBY[di][ci-pairs.length];
           const c=R.paSet.has(nur)?"nur-pa":"nur-jp";
-          html+=`<td style="background:#FAFAFA;color:#888;font-size:12px">待機</td><td class="${c}">${nur}</td><td class="${sep}" style="background:#FAFAFA"></td>`;
+          html+=`<td style="background:#FAFAFA;color:#888;font-size:12px">待機</td><td class="${c}">${paBreak(nur)}</td><td class="${sep}" style="background:#FAFAFA"></td>`;
         }else if(ci-pairs.length-STANDBY[di].length < INHOUSE[di].length){
           const nur=INHOUSE[di][ci-pairs.length-STANDBY[di].length];
           const c=R.paSet.has(nur)?"nur-pa":"nur-jp";
-          html+=`<td style="background:var(--lblue);color:#2E5496;font-size:12px;font-weight:700">内勤</td><td class="${c}">${nur}</td><td class="${sep}" style="background:#FAFAFA"></td>`;
+          html+=`<td style="background:var(--lblue);color:#2E5496;font-size:12px;font-weight:700">内勤</td><td class="${c}">${paBreak(nur)}</td><td class="${sep}" style="background:#FAFAFA"></td>`;
         }else{
           html+=`<td style="background:#FAFAFA"></td><td style="background:#FAFAFA"></td><td class="${sep}" style="background:#FAFAFA"></td>`;
         }
