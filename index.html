@@ -189,11 +189,6 @@
       <button class="clr-btn" id="clearDoc0" onclick="clearDoc(0)">🧹 1週目クリア</button>
       <button class="clr-btn" id="clearDoc1" onclick="clearDoc(1)">🧹 2週目クリア</button>
     </div>
-    <div class="addrow" style="margin-top:6px">
-      <button class="cloud" onclick="saveSection('doc')">☁ この医師表を保存</button>
-      <select id="loadSel_doc" onchange="loadSection('doc',this.value)" style="padding:7px 10px;border-radius:8px;border:1px solid #cfd6e2;font-size:13px;max-width:320px"><option value="">保存済みの医師表…</option></select>
-      <span id="secStatus_doc" class="cstatus"></span>
-    </div>
   </div>
 
   <div class="card no-print">
@@ -211,11 +206,6 @@
       <button class="clr-btn" id="clearNur0" onclick="clearNur(0)">🧹 1週目クリア</button>
       <button class="clr-btn" id="clearNur1" onclick="clearNur(1)">🧹 2週目クリア</button>
     </div>
-    <div class="addrow" style="margin-top:6px">
-      <button class="cloud" onclick="saveSection('nur')">☁ この看護師表を保存</button>
-      <select id="loadSel_nur" onchange="loadSection('nur',this.value)" style="padding:7px 10px;border-radius:8px;border:1px solid #cfd6e2;font-size:13px;max-width:320px"><option value="">保存済みの看護師表…</option></select>
-      <span id="secStatus_nur" class="cstatus"></span>
-    </div>
   </div>
 
   <div class="card no-print">
@@ -232,11 +222,6 @@
       <span class="addrow-sep"></span>
       <button class="clr-btn" id="clearDrv0" onclick="clearDrv(0)">🧹 1週目クリア</button>
       <button class="clr-btn" id="clearDrv1" onclick="clearDrv(1)">🧹 2週目クリア</button>
-    </div>
-    <div class="addrow" style="margin-top:6px">
-      <button class="cloud" onclick="saveSection('drv')">☁ このドライバー表を保存</button>
-      <select id="loadSel_drv" onchange="loadSection('drv',this.value)" style="padding:7px 10px;border-radius:8px;border:1px solid #cfd6e2;font-size:13px;max-width:320px"><option value="">保存済みのドライバー表…</option></select>
-      <span id="secStatus_drv" class="cstatus"></span>
     </div>
     <div style="margin-top:16px;border-top:1px dashed #cfcfcf;padding-top:14px">
       <b style="font-size:13px;">待機ドライバーの手動組み合わせ（医師 × ドライバー）</b>
@@ -276,8 +261,7 @@
 
   <div class="controls no-print">
     <button class="gen" onclick="generate()">▶ シフトを作成</button>
-    <button class="cloud" onclick="cloudSave()">☁ この期間を保存（全員に共有）</button>
-    <select id="periodSel" onchange="loadPeriod(this.value)" style="padding:7px 10px;border-radius:8px;border:1px solid #cfd6e2;font-size:13px;max-width:340px"><option value="">保存済みの期間…</option></select>
+    <button class="cloud" onclick="cloudSave()">☁ 保存（全員に共有）</button>
     <span id="cloudStatus" class="cstatus"></span>
   </div>
   <div class="controls no-print" style="margin-top:8px">
@@ -347,7 +331,7 @@ const DEFAULT={
 };
 let DOC={}, NUR={}, DRV={}, NAV={}, NG=[], PAPREF=[], NGDRV=[], CONTRACTDRV=[], MANUALDRV=[];
 let WKSTART=["",""]; // 各週の月曜日(ISO yyyy-mm-dd)
-let YEARBUF={}, CUR_PKEY=null; // 期間ごとのデータ（無期限・セッション内）。CUR_PKEY=表示中の期間キー
+let WEEKS={}; // 週(月曜ISO)ごとのシフト: {doc:{名前:[5]},nur:{名前:[5]},drv:{名前:[5]},manual:[{wd,doc,drv}]}。名簿とルールはグローバル
 
 /* ===== 日付ユーティリティ ===== */
 function pad2(n){return String(n).padStart(2,"0");}
@@ -364,21 +348,39 @@ function weekTitle(wk){ const s=parseISO(WKSTART[wk]);
 function dayLabel(wk,i){ const dt=dayDate(wk,i);
   return dt? `${WD[i]}<br><small style="font-weight:400;opacity:.85">${fmtMD(dt)}</small>` : `${WD[i]}`; }
 function initDates(){ const m1=nextMonday(new Date()); WKSTART=[isoOf(m1), isoOf(addDays(m1,7))]; }
-function stashCurrent(){ if(CUR_PKEY){ YEARBUF[CUR_PKEY]=gatherState(); } } // 今の期間の内容を一時保存
-function switchPeriod(wk){
-  const key=wk[0]||"unknown";
-  const src=YEARBUF[key]||((PERIODS_CACHE[key]&&PERIODS_CACHE[key].DOC)?PERIODS_CACHE[key]:null);
-  if(src){ applyState(src); } // その期間の保存データがあれば表示
-  else { applyBaseSchedule(); } // 新規期間：ベース（既定の勤務パターン）から開始。ルールは現状維持
-  WKSTART=wk.slice(); CUR_PKEY=key;
-  renderDates(); renderInputs(); generate(true);
+/* 週ごとのデータ ⇄ 表示中2週間(DOC/NUR/DRV/MANUALDRV) の同期 */
+function baseWeekArr(kind,n){
+  if(kind==="doc"){ const dd=DEFAULT.docDays[n]; return [0,1,2,3,4].map(d=> dd&&dd.includes(d)?"○":"×"); }
+  if(kind==="nur"){ return ["○","○","○","○","○"]; }
+  return ["◯","◯","◯","◯","◯"];
+}
+function syncWindowToWeeks(){ // 表示中2週間 → WEEKS
+  [0,1].forEach(wk=>{ const k=WKSTART[wk]; if(!k) return;
+    const w={doc:{},nur:{},drv:{},manual:[]};
+    Object.keys(DOC).forEach(n=>w.doc[n]=DOC[n].slice(wk*5,wk*5+5));
+    Object.keys(NUR).forEach(n=>w.nur[n]=NUR[n].av.slice(wk*5,wk*5+5));
+    Object.keys(DRV).forEach(n=>w.drv[n]=DRV[n].av.slice(wk*5,wk*5+5));
+    MANUALDRV.filter(m=>Math.floor(m.di/5)===wk).forEach(m=>w.manual.push({wd:m.di%5,doc:m.doc,drv:m.drv}));
+    WEEKS[k]=w;
+  });
+}
+function loadWindowFromWeeks(){ // WEEKS → 表示中2週間（無い週はベースで埋める）
+  MANUALDRV=[];
+  [0,1].forEach(wk=>{ const k=WKSTART[wk]; const w=WEEKS[k];
+    Object.keys(DOC).forEach(n=>{ const a=(w&&w.doc&&w.doc[n])||baseWeekArr("doc",n); for(let i=0;i<5;i++) DOC[n][wk*5+i]=a[i]; });
+    Object.keys(NUR).forEach(n=>{ const a=(w&&w.nur&&w.nur[n])||baseWeekArr("nur",n); for(let i=0;i<5;i++) NUR[n].av[wk*5+i]=a[i]; });
+    Object.keys(DRV).forEach(n=>{ const a=(w&&w.drv&&w.drv[n])||baseWeekArr("drv",n); for(let i=0;i<5;i++) DRV[n].av[wk*5+i]=a[i]; });
+    if(w&&w.manual) w.manual.forEach(m=>MANUALDRV.push({di:wk*5+m.wd,doc:m.doc,drv:m.drv}));
+  });
 }
 function onDateChange(){
-  stashCurrent(); // 表示中の期間を退避してから切り替え
+  syncWindowToWeeks(); // 今表示している2週間をWEEKSへ保存
   const a=document.getElementById("wk1Start").value;
   let wk=WKSTART.slice(); if(a) wk[0]=isoOf(mondayOf(parseISO(a))); // 選んだ日→その週の月曜にそろえる
   if(wk[0]) wk[1]=isoOf(addDays(parseISO(wk[0]),7)); // 翌週は自動
-  switchPeriod(wk);
+  WKSTART=wk;
+  loadWindowFromWeeks(); // 移動先の2週間を表示
+  renderDates(); renderInputs(); generate(true); return;
 }
 function wkClearLabel(wk){ const a=dayDate(wk,0), b=dayDate(wk,4); return a&&b ? `🧹 ${fmtMD(a)}〜${fmtMD(b)}をクリア` : `🧹 ${wk+1}週目クリア`; }
 function renderDates(){
@@ -602,23 +604,27 @@ function isNG(doc,nur){ return NG.some(p=>p[0]===doc&&p[1]===nur); }
 function isNGDrv(doc,drv){ return NGDRV.some(p=>p[0]===doc&&p[1]===drv); }
 function dravail(name,di){ return DRV[name]?DRV[name].av[di]:"×"; } // 週別 ◯/△/×
 
-/* 一時的にグローバルを差し替えて、指定した保存状態の割当だけ取得（再帰防止に noSeed=true）*/
-function solveState(st,noSeed){ const bak={DOC,NUR,DRV,NG,PAPREF,NGDRV,CONTRACTDRV,MANUALDRV,WKSTART};
-  try{ applyState(st); return solve(noSeed); }
-  finally{ DOC=bak.DOC;NUR=bak.NUR;DRV=bak.DRV;NG=bak.NG;PAPREF=bak.PAPREF;NGDRV=bak.NGDRV;CONTRACTDRV=bak.CONTRACTDRV;MANUALDRV=bak.MANUALDRV;WKSTART=bak.WKSTART; } }
-/* 同じ月（開始週の年月）に属する、今と別の期間の保存状態を集める */
-function otherSameMonthStates(){ const curKey=WKSTART[0]||"", curMon=curKey.slice(0,7); if(!curMon) return [];
-  const src=Object.assign({},PERIODS_CACHE,YEARBUF);
-  return Object.keys(src).filter(k=>k!==curKey && k.slice(0,7)===curMon && src[k]&&src[k].DOC).map(k=>src[k]); }
+/* 指定した週(WEEKS[k])だけを一時的に解いて割当を取得（再帰防止に solve(true)）*/
+function solveWeek(k){ const w=WEEKS[k]; if(!w) return null;
+  const bak={DOC,NUR,DRV,MANUALDRV}, off5=["×","×","×","×","×"], tDOC={},tNUR={},tDRV={};
+  Object.keys(DOC).forEach(n=>tDOC[n]=((w.doc&&w.doc[n])||baseWeekArr("doc",n)).concat(off5));
+  Object.keys(NUR).forEach(n=>tNUR[n]={pa:NUR[n].pa, av:((w.nur&&w.nur[n])||baseWeekArr("nur",n)).concat(off5)});
+  Object.keys(DRV).forEach(n=>tDRV[n]={av:((w.drv&&w.drv[n])||baseWeekArr("drv",n)).concat(off5)});
+  const tMAN=((w.manual)||[]).map(m=>({di:m.wd,doc:m.doc,drv:m.drv}));
+  DOC=tDOC;NUR=tNUR;DRV=tDRV;MANUALDRV=tMAN;
+  try{ return solve(true); } finally{ DOC=bak.DOC;NUR=bak.NUR;DRV=bak.DRV;MANUALDRV=bak.MANUALDRV; } }
+/* 同じ月（月曜の年月）で、今表示していない週のキー */
+function otherSameMonthWeeks(){ const cur=new Set([WKSTART[0],WKSTART[1]]), mon=(WKSTART[0]||"").slice(0,7); if(!mon) return [];
+  return Object.keys(WEEKS).filter(k=>!cur.has(k) && k.slice(0,7)===mon); }
 function solve(noSeed){
   const docLabels=Object.keys(DOC), nurseNames=Object.keys(NUR);
   const paSet=new Set(nurseNames.filter(n=>NUR[n].pa));
   const nload={}; nurseNames.forEach(n=>nload[n]=0);
   let pairCnt={}; // 週内の同ペア回数 `${doc}|${n}`（週ごとにリセット）
   const wdPair={}; // 曜日別の同ペア回数 `${doc}|${曜日}|${n}`（週をまたがない＋同月内の他期間からも加算）
-  if(!noSeed){ // 同月内の他の期間の割当を種として反映（1ヶ月を通して同じ曜日に同じ医師×看護師を避ける）
-    otherSameMonthStates().forEach(st=>{ let Rk; try{ Rk=solveState(st,true); }catch(e){ return; }
-      Rk.schedule.forEach((pairs,di)=>{ const w=di%5; pairs.forEach(p=>{ if(p[1]) wdPair[p[0]+"|"+w+"|"+p[1]]=(wdPair[p[0]+"|"+w+"|"+p[1]]||0)+1; }); }); });
+  if(!noSeed){ // 同月内の他の週の割当を種として反映（1ヶ月を通して同じ曜日に同じ医師×看護師を避ける）
+    otherSameMonthWeeks().forEach(k=>{ let Rk; try{ Rk=solveWeek(k); }catch(e){ return; } if(!Rk) return;
+      Rk.schedule.forEach((pairs,di)=>{ if(di>4) return; const w=di%5; pairs.forEach(p=>{ if(p[1]) wdPair[p[0]+"|"+w+"|"+p[1]]=(wdPair[p[0]+"|"+w+"|"+p[1]]||0)+1; }); }); });
   }
   const schedule=[], unfilled=[], soft=[];
   // ドライバー割当用
@@ -749,6 +755,7 @@ function solve(noSeed){
 
 /* ===== 結果描画 ===== */
 function generate(auto){
+  syncWindowToWeeks(); // 表示中の編集内容を週データへ反映（消えないように）
   const R=solve();
   const MAX=Math.max(...R.schedule.map(s=>s.length));
   const CARS="ABCDEFGHIJ".split("");
@@ -1013,119 +1020,68 @@ let PERIODS_CACHE={}, SECTIONS_CACHE={doc:{},nur:{},drv:{}};
 function periodKey(){ return WKSTART[0]||"unknown"; } // 期間の識別キー＝開始週の月曜日
 function curRange(){ const a=dayDate(0,0), b=dayDate(1,4); return a&&b?`${fmtMD(a)}〜${fmtMD(b)}`:(WKSTART[0]||""); }
 function stRange(st){ if(!st||!Array.isArray(st.WKSTART)) return ""; const a=parseISO(st.WKSTART[0]), b=parseISO(st.WKSTART[1]); return a&&b?`${fmtMD(a)}〜${fmtMD(addDays(b,4))}`:(st.WKSTART[0]||""); }
-function gatherState(){ return {WKSTART:WKSTART.slice(), DOC:clone(DOC), NUR:clone(NUR), DRV:clone(DRV), NG:clone(NG), PAPREF:clone(PAPREF), NGDRV:clone(NGDRV), CONTRACTDRV:clone(CONTRACTDRV), MANUALDRV:clone(MANUALDRV), savedAt:new Date().toISOString()}; }
+/* 全体データ（名簿＋ルール＋全週）を1つにまとめる／復元する */
+function gatherState(){ syncWindowToWeeks(); return {
+  WEEKS:clone(WEEKS),
+  roster:{ docNames:Object.keys(DOC), nur:Object.keys(NUR).map(n=>({name:n,pa:!!NUR[n].pa})), drvNames:Object.keys(DRV) },
+  NG:clone(NG), PAPREF:clone(PAPREF), NGDRV:clone(NGDRV), CONTRACTDRV:clone(CONTRACTDRV),
+  WKSTART:WKSTART.slice(), savedAt:new Date().toISOString() }; }
 function applyState(s){
   if(!s||typeof s!=="object") return false;
-  if(Array.isArray(s.WKSTART)&&s.WKSTART.length===2) WKSTART=s.WKSTART.slice();
-  if(s.DOC&&typeof s.DOC==="object") DOC=s.DOC;
-  if(s.NUR&&typeof s.NUR==="object") NUR=s.NUR;
-  if(s.DRV&&typeof s.DRV==="object") DRV=s.DRV;
+  if(s.WEEKS&&typeof s.WEEKS==="object") WEEKS=clone(s.WEEKS);
+  if(s.roster){
+    DOC={}; (s.roster.docNames||[]).forEach(n=>DOC[n]=Array(10).fill("×"));
+    NUR={}; (s.roster.nur||[]).forEach(o=>NUR[o.name]={pa:!!o.pa, av:Array(10).fill("×")});
+    DRV={}; (s.roster.drvNames||[]).forEach(n=>DRV[n]={av:Array(10).fill("×")});
+  }
   if(Array.isArray(s.NG)) NG=s.NG;
   if(Array.isArray(s.PAPREF)) PAPREF=s.PAPREF;
   if(Array.isArray(s.NGDRV)) NGDRV=s.NGDRV;
   if(Array.isArray(s.CONTRACTDRV)) CONTRACTDRV=s.CONTRACTDRV;
-  MANUALDRV=Array.isArray(s.MANUALDRV)?s.MANUALDRV:[];
+  if(Array.isArray(s.WKSTART)&&s.WKSTART.length===2) WKSTART=s.WKSTART.slice();
+  loadWindowFromWeeks();
   return true;
 }
-function populatePeriodSel(){
-  const sel=document.getElementById("periodSel"); if(!sel) return;
-  const keys=Object.keys(PERIODS_CACHE).filter(k=>PERIODS_CACHE[k]&&PERIODS_CACHE[k].DOC).sort();
-  sel.innerHTML=`<option value="">保存済みの期間…（${keys.length}件）</option>`
-    +keys.map(k=>`<option value="${k}">${stRange(PERIODS_CACHE[k])}（保存:${PERIODS_CACHE[k].savedAt?fmtDT(PERIODS_CACHE[k].savedAt):"?"}）</option>`).join("");
-}
-/* ===== セクション別（①医師 / ②看護師 / ③ドライバー）保存・呼び出し ===== */
-const SEC_LABEL={doc:"医師",nur:"看護師",drv:"ドライバー"};
-function gatherSection(type){
-  const base={WKSTART:WKSTART.slice(), savedAt:new Date().toISOString()};
-  if(type==="doc") return {...base, DOC:clone(DOC)};
-  if(type==="nur") return {...base, NUR:clone(NUR)};
-  return {...base, DRV:clone(DRV), NGDRV:clone(NGDRV), CONTRACTDRV:clone(CONTRACTDRV), MANUALDRV:clone(MANUALDRV)};
-}
-function applySection(type,st){
-  if(!st) return;
-  if(type==="doc"&&st.DOC) DOC=clone(st.DOC);
-  else if(type==="nur"&&st.NUR) NUR=clone(st.NUR);
-  else if(type==="drv"){ if(st.DRV)DRV=clone(st.DRV); if(Array.isArray(st.NGDRV))NGDRV=clone(st.NGDRV); if(Array.isArray(st.CONTRACTDRV))CONTRACTDRV=clone(st.CONTRACTDRV); if(Array.isArray(st.MANUALDRV))MANUALDRV=clone(st.MANUALDRV); }
-}
-function secHasData(type,st){ return st && (type==="doc"?st.DOC:type==="nur"?st.NUR:st.DRV); }
-function setSecStatus(type,msg,kind){ const e=document.getElementById("secStatus_"+type); if(e){ e.textContent=msg; e.className="cstatus"+(kind?(" "+kind):""); } }
-function populateSectionSels(){
-  ["doc","nur","drv"].forEach(type=>{
-    const sel=document.getElementById("loadSel_"+type); if(!sel) return;
-    const store=SECTIONS_CACHE[type]||{};
-    const keys=Object.keys(store).filter(k=>secHasData(type,store[k])).sort();
-    sel.innerHTML=`<option value="">保存済みの${SEC_LABEL[type]}表…（${keys.length}件）</option>`
-      +keys.map(k=>`<option value="${k}">${stRange(store[k])}（保存:${store[k].savedAt?fmtDT(store[k].savedAt):"?"}）</option>`).join("");
-  });
-}
-async function fetchStore(){
-  const r=await fetch(STORE_URL+"/latest",{headers:{"X-Access-Key":STORE_KEY},cache:"no-store"});
-  if(!r.ok) throw new Error("HTTP "+r.status);
-  const rec=(await r.json()).record||{};
-  let periods=(rec.periods&&typeof rec.periods==="object")?rec.periods:{};
-  if(rec.state&&rec.state.DOC&&Array.isArray(rec.state.WKSTART)){ const lk=rec.state.WKSTART[0]||"legacy"; if(!periods[lk]) periods[lk]=rec.state; } // 旧形式を移行
-  let sections=(rec.sections&&typeof rec.sections==="object")?rec.sections:{};
-  ["doc","nur","drv"].forEach(t=>{ if(!sections[t]||typeof sections[t]!=="object") sections[t]={}; });
-  return {periods, sections};
-}
-async function putStore(periods,sections){
-  const r=await fetch(STORE_URL,{method:"PUT",headers:{"Content-Type":"application/json","X-Access-Key":STORE_KEY},body:JSON.stringify({periods,sections,_app:"homecare-shift"})});
-  if(!r.ok) throw new Error("HTTP "+r.status);
+/* 旧形式（periods/sections/state）→ 新形式（WEEKS＋名簿＋ルール）へ変換 */
+function migrateOld(rec){
+  let periods = (rec.periods&&typeof rec.periods==="object") ? rec.periods : null;
+  if(!periods && rec.state && rec.state.DOC) periods={ [ (rec.state.WKSTART&&rec.state.WKSTART[0])||"legacy" ]: rec.state };
+  if(!periods) return null;
+  const W={}; let roster=null, rules=null;
+  Object.keys(periods).sort().forEach(pk=>{ const st=periods[pk]; if(!st||!st.DOC||!Array.isArray(st.WKSTART)) return;
+    roster={ docNames:Object.keys(st.DOC), nur:Object.keys(st.NUR||{}).map(n=>({name:n,pa:!!(st.NUR[n]&&st.NUR[n].pa)})), drvNames:Object.keys(st.DRV||{}) };
+    rules={ NG:st.NG||[], PAPREF:st.PAPREF||[], NGDRV:st.NGDRV||[], CONTRACTDRV:st.CONTRACTDRV||[] };
+    [0,1].forEach(wk=>{ const k=st.WKSTART[wk]; if(!k) return; const w={doc:{},nur:{},drv:{},manual:[]};
+      Object.keys(st.DOC).forEach(n=>w.doc[n]=(st.DOC[n]||[]).slice(wk*5,wk*5+5));
+      Object.keys(st.NUR||{}).forEach(n=>w.nur[n]=((st.NUR[n]&&st.NUR[n].av)||[]).slice(wk*5,wk*5+5));
+      Object.keys(st.DRV||{}).forEach(n=>w.drv[n]=((st.DRV[n]&&st.DRV[n].av)||[]).slice(wk*5,wk*5+5));
+      (st.MANUALDRV||[]).filter(m=>Math.floor(m.di/5)===wk).forEach(m=>w.manual.push({wd:m.di%5,doc:m.doc,drv:m.drv}));
+      W[k]=w; }); });
+  if(!roster) return null;
+  return { WEEKS:W, roster, NG:rules.NG, PAPREF:rules.PAPREF, NGDRV:rules.NGDRV, CONTRACTDRV:rules.CONTRACTDRV, WKSTART:WKSTART.slice(), savedAt:new Date().toISOString() };
 }
 async function cloudSave(){
   setCloud("保存中…");
   try{
-    stashCurrent(); // 表示中の期間もバッファへ
-    let {periods,sections}={periods:{},sections:{doc:{},nur:{},drv:{}}};
-    try{ ({periods,sections}=await fetchStore()); }catch(e){}
-    Object.keys(YEARBUF).forEach(k=>{ periods[k]=YEARBUF[k]; }); // このセッションで触れた全期間を保存
-    periods[periodKey()]=gatherState();
-    await putStore(periods,sections);
-    PERIODS_CACHE=periods; SECTIONS_CACHE=sections; populatePeriodSel(); populateSectionSels();
-    setCloud("✓ この期間（"+curRange()+"）を保存しました（"+fmtDT(new Date().toISOString())+"）— 全員に共有","ok");
+    const data=gatherState(); // 名簿＋ルール＋全週をまとめて
+    const r=await fetch(STORE_URL,{method:"PUT",headers:{"Content-Type":"application/json","X-Access-Key":STORE_KEY},body:JSON.stringify({data,_app:"homecare-shift",v:2})});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    setCloud("✓ 保存しました（"+fmtDT(new Date().toISOString())+"）— 全員に共有","ok");
   }catch(e){ setCloud("保存に失敗しました："+e.message,"err"); }
 }
 async function cloudLoad(){
   setCloud("読み込み中…");
   try{
-    const {periods,sections}=await fetchStore();
-    PERIODS_CACHE=periods; SECTIONS_CACHE=sections; populatePeriodSel(); populateSectionSels();
-    const key=periodKey();
-    if(periods[key]&&periods[key].DOC){
-      applyState(periods[key]); renderDates(); renderInputs(); generate(true);
-      setCloud("✓ この期間（"+curRange()+"）の保存を表示中（最終保存："+(periods[key].savedAt?fmtDT(periods[key].savedAt):"不明")+"）","ok");
+    const r=await fetch(STORE_URL+"/latest",{headers:{"X-Access-Key":STORE_KEY},cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const rec=(await r.json()).record||{};
+    let data=(rec.data&&rec.data.WEEKS)?rec.data:migrateOld(rec); // 新形式 or 旧形式から変換
+    if(data&&data.WEEKS){
+      applyState(data); renderDates(); renderInputs(); generate(true);
+      setCloud("✓ 共有データを表示中（最終保存："+(data.savedAt?fmtDT(data.savedAt):"不明")+"）","ok");
       return true;
-    }else{
-      const n=Object.keys(periods).filter(k=>periods[k]&&periods[k].DOC).length;
-      setCloud(n? "この期間（"+curRange()+"）の全体保存はまだありません。「保存済みの期間…」や各セクションの保存から呼び出せます。" : "保存データはまだありません。編集して「この期間を保存」または各セクションの保存を押してください。");
-      return false;
-    }
+    }else{ setCloud("保存データはまだありません。編集して「☁ 保存」を押すと全員に共有されます。"); return false; }
   }catch(e){ setCloud("読み込みに失敗しました："+e.message,"err"); return false; }
-}
-function loadPeriod(key){
-  if(!key||!PERIODS_CACHE[key]||!PERIODS_CACHE[key].DOC) return;
-  stashCurrent();
-  applyState(PERIODS_CACHE[key]); CUR_PKEY=periodKey(); YEARBUF[CUR_PKEY]=gatherState();
-  renderDates(); renderInputs(); generate(true);
-  setCloud("✓ 「"+stRange(PERIODS_CACHE[key])+"」を表示中（最終保存："+(PERIODS_CACHE[key].savedAt?fmtDT(PERIODS_CACHE[key].savedAt):"不明")+"）","ok");
-}
-async function saveSection(type){
-  setSecStatus(type,"保存中…");
-  try{
-    let {periods,sections}={periods:{},sections:{doc:{},nur:{},drv:{}}};
-    try{ ({periods,sections}=await fetchStore()); }catch(e){}
-    sections[type]=sections[type]||{};
-    sections[type][periodKey()]=gatherSection(type); // その期間のこのセクションだけ上書き
-    await putStore(periods,sections);
-    PERIODS_CACHE=periods; SECTIONS_CACHE=sections; populateSectionSels();
-    setSecStatus(type,"✓ "+SEC_LABEL[type]+"を保存しました（"+curRange()+"）","ok");
-  }catch(e){ setSecStatus(type,"保存に失敗："+e.message,"err"); }
-}
-function loadSection(type,key){
-  if(!key) return; const st=(SECTIONS_CACHE[type]||{})[key];
-  if(!secHasData(type,st)) return;
-  applySection(type,st); renderInputs(); generate(true);
-  setSecStatus(type,"✓ 「"+stRange(st)+"」の"+SEC_LABEL[type]+"を読み込みました","ok");
 }
 
 /* ===== 管理ページ（PIN保護）===== */
@@ -1186,9 +1142,9 @@ function addContractDrv(){ const d=document.getElementById("contractDrvSel").val
 
 /* 起動 */
 async function start(){
-  initDates(); loadDefault(); renderDates(); renderInputs(); applyAdminVisibility(); applyAdmin2Visibility(); generate(true);
-  await cloudLoad(); // 共有データがあれば反映
-  CUR_PKEY=periodKey(); YEARBUF[CUR_PKEY]=gatherState(); // 表示中の期間を年バッファに登録
+  initDates(); loadDefault(); WEEKS={}; syncWindowToWeeks(); // 名簿・ルール・ベース、現在週をWEEKSへ
+  renderDates(); renderInputs(); applyAdminVisibility(); applyAdmin2Visibility(); generate(true);
+  await cloudLoad(); // 共有データ（全週）があれば反映
   if(location.hash==="#admin") openAdmin();
   if(location.hash==="#admin2") openAdmin2();
 }
