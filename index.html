@@ -176,7 +176,7 @@
 
   <div class="card no-print">
     <h2>① 医師スケジュール</h2>
-    <details class="sec-desc"><summary>説明</summary><p class="hint">セルをタップして設定します。○=稼働 / ◎=処置あり / 契=契約 / ✓=物品庫チェック / 前=午前のみ / 後=午後のみ は<b>複数選択できます</b>（×=休のみ単独）。契約の日は結果表で【契】が付き、契約専任ドライバーだけが割り当てられます。物品庫チェックの日は、医師名の横に✓が付きます。<b>前／後は表示ラベル</b>で、割当は終日1台のまま（結果表に「午前」「午後」と表示）。</p></details>
+    <details class="sec-desc"><summary>説明</summary><p class="hint">セルをタップして設定します。○=稼働 / ◎=処置あり / 契=契約 / ✓=物品庫チェック / PD / 前=午前のみ / 後=午後のみ は<b>複数選択できます</b>（×=休のみ単独）。PDの日は<b>PD対応ドライバー</b>だけが割り当てられます（③で設定）。契約の日は結果表で【契】が付き、契約専任ドライバーだけが割り当てられます。物品庫チェックの日は、医師名の横に✓が付きます。<b>前／後は表示ラベル</b>で、割当は終日1台のまま（結果表に「午前」「午後」と表示）。</p></details>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="docTbl"></table></div>
     <div class="addrow">
@@ -231,6 +231,15 @@
         <select id="manualDrvDay"></select>
         <select id="manualDrvDoc"></select>×<select id="manualDrvDrv"></select>
         <button class="sec" onclick="addManualDrv()">＋ 組み合わせを追加</button>
+      </div>
+    </div>
+    <div style="margin-top:16px;border-top:1px dashed #cfcfcf;padding-top:14px">
+      <b style="font-size:13px;">PD対応ドライバー（複数選択可）</b>
+      <details class="sec-desc"><summary>説明</summary><p class="hint">PDの医師の車には、ここで選んだ<b>PD対応ドライバーだけ</b>が割り当てられます。医師スケジュールで「PD」を選んだ日が対象です。</p></details>
+      <div class="ng-list" id="pdDrvList"></div>
+      <div class="addrow">
+        <select id="pdDrvSel"></select>
+        <button class="sec" onclick="addPdDrv()">＋ 追加</button>
       </div>
     </div>
   </div>
@@ -327,9 +336,10 @@ const DEFAULT={
   ng:[["鈴木","PA萩原"],["鈴木","PA佐藤"],["寺田","武田"],["牧野","笹沼"],["牧野","PA萩原"],["牧野","PA佐藤"]],
   paPref:["友佳子"],
   ngDrv:[["【物品庫チェック】","北岡"],["【単独】","北岡"]], // 医師×ドライバーNG（【条件】も指定可。管理ページ2で編集）
-  contractDrv:["佐々木","柳井","中村"] // 契約の日に優先で付けるドライバー（管理ページ2で変更可）
+  contractDrv:["佐々木","柳井","中村"], // 契約の日に優先で付けるドライバー（管理ページ2で変更可）
+  pdDrv:["柳井","奥津"] // PD対応ドライバー（③で変更可・複数可）
 };
-let DOC={}, NUR={}, DRV={}, NAV={}, NG=[], PAPREF=[], NGDRV=[], CONTRACTDRV=[], MANUALDRV=[];
+let DOC={}, NUR={}, DRV={}, NAV={}, NG=[], PAPREF=[], NGDRV=[], CONTRACTDRV=[], MANUALDRV=[], PDDRV=[];
 let WKSTART=["",""]; // 各週の月曜日(ISO yyyy-mm-dd)
 let WEEKS={}; // 週(月曜ISO)ごとのシフト: {doc:{名前:[5]},nur:{名前:[5]},drv:{名前:[5]},manual:[{wd,doc,drv}]}。名簿とルールはグローバル
 
@@ -404,7 +414,7 @@ function loadDefault(){
   }
   DRV={}; // name -> {av:[10]}  ドライバー（◯/契約/チェック/準備/単独/×）
   for(const nm of DEFAULT.drivers){ DRV[nm]={av:[0,1,2,3,4,5,6,7,8,9].map(_=> "◯")}; }
-  NG=clone(DEFAULT.ng); PAPREF=clone(DEFAULT.paPref); NGDRV=clone(DEFAULT.ngDrv||[]); CONTRACTDRV=clone(DEFAULT.contractDrv||[]); MANUALDRV=[];
+  NG=clone(DEFAULT.ng); PAPREF=clone(DEFAULT.paPref); NGDRV=clone(DEFAULT.ngDrv||[]); CONTRACTDRV=clone(DEFAULT.contractDrv||[]); PDDRV=clone(DEFAULT.pdDrv||[]); MANUALDRV=[];
 }
 /* 新規期間用：メンバー＋シフトはベース（DEFAULT）に。ルール（NG/契約等）は現状維持 */
 function applyBaseSchedule(){
@@ -431,7 +441,7 @@ function renderInputs(){
   const docOrder=Object.keys(DOC).sort((a,b)=>(({"友佳子":1,"X":2}[a]||0))-(({"友佳子":1,"X":2}[b]||0)));
   for(const n of docOrder){
     h+=`<tr><td class="rowhdr">${n}</td>`;
-    DOC[n].forEach((v,di)=>{ const sep=(di===4)?"daysep":""; h+=`<td class="av ${docCellClass(v)} ${sep}" onclick="openPick(event,'doc','${n}',${di})">${v}</td>`; });
+    DOC[n].forEach((v,di)=>{ const sep=(di===4)?"daysep":""; h+=`<td class="av ${docCellClass(v)} ${sep}" onclick="openPick(event,'doc','${n}',${di})">${String(v).replace(/P/g,"PD")}</td>`; });
     h+="</tr>";
   }
   document.getElementById("docTbl").innerHTML=h+"</tbody>";
@@ -457,7 +467,7 @@ function renderInputs(){
     dv+=`</tr>`;
   }
   document.getElementById("drvTbl").innerHTML=dv+"</tbody>";
-  renderRules(); renderNgDrv(); renderContractDrv(); renderManualDrv(); populateDelSelects();
+  renderRules(); renderNgDrv(); renderContractDrv(); renderPdDrv(); renderManualDrv(); populateDelSelects();
 }
 /* ===== 待機ドライバーの手動組み合わせ（医師×ドライバー・日ごと）===== */
 function dayOptLabel(di){ const wk=Math.floor(di/5), wd=di%5, dt=dayDate(wk,wd); return dt?`${WD[wd]}(${fmtMD(dt)})`:`${WD[wd]}（${di<5?"前半":"後半"}）`; }
@@ -492,7 +502,7 @@ function addDriver(){
   DRV[v]={av:[0,1,2,3,4,5,6,7,8,9].map(_=> "◯")};
   document.getElementById("newDrv").value=""; renderInputs();
 }
-function delDriver(n){ if(!confirm(n+" を削除しますか？"))return; delete DRV[n]; NGDRV=NGDRV.filter(p=>p[1]!==n); CONTRACTDRV=CONTRACTDRV.filter(d=>d!==n); MANUALDRV=MANUALDRV.filter(m=>m.drv!==n); renderInputs(); generate(true); }
+function delDriver(n){ if(!confirm(n+" を削除しますか？"))return; delete DRV[n]; NGDRV=NGDRV.filter(p=>p[1]!==n); CONTRACTDRV=CONTRACTDRV.filter(d=>d!==n); PDDRV=PDDRV.filter(d=>d!==n); MANUALDRV=MANUALDRV.filter(m=>m.drv!==n); renderInputs(); generate(true); }
 function addDoc(){
   const el=document.getElementById("newDoc"); const v=el.value.trim();
   if(!v||DOC[v])return;
@@ -510,7 +520,7 @@ function cycDoc(n,wd){ DOC[n][wd]=DOC_CYCLE[DOC[n][wd]]; renderInputs(); }
 function cycNur(n,di){ NUR[n].av[di]=NUR_CYCLE[NUR[n].av[di]]; renderInputs(); }
 const PICK_OPTS={doc:[["○","稼働"],["◎","処置あり"],["契約","契約"],["×","休"]],nur:[["○","稼働"],["前","午前のみ"],["後","午後のみ"],["×","休"],["△","内勤"]],
   drv:[["◯","終日稼働"],["前","午前のみ"],["後","午後のみ"],["△","内勤"],["単独","単独"],["×","休"]]};
-function pmStyle(v){return (v==="○"||v==="◯")?"background:#fff;color:#1a7a1a":v==="×"?"background:#FCE4D6;color:#b06":v==="◎"?"background:#FFE699;color:#7a5a00":v==="契約"?"background:#E2EFDA;color:#375623":v==="チェック"?"background:#DDEBF7;color:#1F4E79":v==="準備"?"background:#FFF2CC;color:#7f6000":v==="単独"?"background:#E6E0F0;color:#5b3d8a":v==="前"?"background:#DDEBF7;color:#1F4E79":v==="後"?"background:#FCE4D6;color:#c05621":"background:#D6E4F0;color:#2E5496";}
+function pmStyle(v){return (v==="○"||v==="◯")?"background:#fff;color:#1a7a1a":v==="×"?"background:#FCE4D6;color:#b06":v==="◎"?"background:#FFE699;color:#7a5a00":v==="契約"?"background:#E2EFDA;color:#375623":v==="チェック"?"background:#DDEBF7;color:#1F4E79":v==="準備"?"background:#FFF2CC;color:#7f6000":v==="単独"?"background:#E6E0F0;color:#5b3d8a":v==="前"?"background:#DDEBF7;color:#1F4E79":v==="後"?"background:#FCE4D6;color:#c05621":v==="P"?"background:#E7DDF2;color:#6b3fa0":"background:#D6E4F0;color:#2E5496";}
 function openPick(ev,type,name,di){
   ev.stopPropagation();
   let m=document.getElementById("pickMenu");
@@ -541,7 +551,7 @@ function pick(type,name,di,v){
 /* 医師は複数選択（休以外は組合せ可）*/
 function renderDocMenu(m,name,di){
   const v=DOC[name][di];
-  const opts=[["○","稼働"],["◎","処置あり"],["契","契約"],["✓","物品庫チェック"],["前","午前のみ"],["後","午後のみ"]];
+  const opts=[["○","稼働"],["◎","処置あり"],["契","契約"],["✓","物品庫チェック"],["P","PD"],["前","午前のみ"],["後","午後のみ"]];
   let h=`<div class="pm-h">${name}（複数選択可・休以外／稼働・午前のみ・午後のみは同時選択不可）</div>`;
   h+=opts.map(([t,lab])=>{ const on=(v!=="×"&&v.indexOf(t)>=0);
     return `<div class="pm-opt ${on?"sel":""}" onclick="event.stopPropagation();toggleDoc('${name}',${di},'${t}')">`+
@@ -552,8 +562,7 @@ function renderDocMenu(m,name,di){
 }
 function toggleDoc(name,di,tok){
   if(tok==="×"){ DOC[name][di]="×"; closePick(); renderInputs(); generate(true); return; }
-  const order=["○","◎","契","✓","前","後"];
-  const v=DOC[name][di];
+  const order=["○","◎","契","✓","P","前","後"]; // P＝PD  const v=DOC[name][di];
   const set=new Set((v==="×"?"":v).split("").filter(Boolean));
   if(set.has(tok)) set.delete(tok); else set.add(tok);
   // 稼働(○)・処置あり(◎)・午前のみ(前)・午後のみ(後)は排他（同時選択不可）
@@ -598,7 +607,7 @@ function addPA(){const d=paDoc.value;if(d&&!PAPREF.includes(d)){PAPREF.push(d);r
 function davail(name,di){ return DOC[name][di]; }         // 週別（複数可の文字列。○◎契✓ の組合せ、または ×）
 function dHas(v,t){ return typeof v==="string" && v!=="×" && v.indexOf(t)>=0; }
 function docHas(name,di,t){ return dHas(davail(name,di),t); }
-function docWorks(name,di){ return docHas(name,di,"○")||docHas(name,di,"◎")||docHas(name,di,"契")||docHas(name,di,"前")||docHas(name,di,"後"); } // 訪問する（車が要る／午前・午後のみもラベル扱いで終日1台）
+function docWorks(name,di){ return docHas(name,di,"○")||docHas(name,di,"◎")||docHas(name,di,"契")||docHas(name,di,"前")||docHas(name,di,"後")||docHas(name,di,"P"); } // 訪問する（車が要る）。P=PDも訪問扱い
 function navail(name,di){ return NUR[name].av[di]; }      // 週別 ○ / × / 希 / △（di:0-9）
 function isNG(doc,nur){ return NG.some(p=>p[0]===doc&&p[1]===nur); }
 function isNGDrv(doc,drv){ return NGDRV.some(p=>p[0]===doc&&p[1]===drv); }
@@ -696,15 +705,17 @@ function solve(noSeed){
     const worksBoth = doc => !docHas(doc,di,"前") && !docHas(doc,di,"後"); // 終日訪問（午前/午後の指定なし）
     const prio = ci => { const doc=daySorted[ci][0];
       if(docHas(doc,di,"契")) return 1;
-      if(docHas(doc,di,"✓")) return 2;
-      if(MANUALDRV.some(m=>m.di===di&&m.doc===doc)) return 3;
-      return 4; };
-    const eligFor = (ci,half,usedDrv) => { const doc=daySorted[ci][0], isContract=docHas(doc,di,"契"), wantVal=half==="am"?"前":"後";
+      if(docHas(doc,di,"P")) return 2;   // PD（対応ドライバーが限られるので先に確保）
+      if(docHas(doc,di,"✓")) return 3;
+      if(MANUALDRV.some(m=>m.di===di&&m.doc===doc)) return 4;
+      return 5; };
+    const eligFor = (ci,half,usedDrv) => { const doc=daySorted[ci][0], isContract=docHas(doc,di,"契"), isPD=docHas(doc,di,"P"), wantVal=half==="am"?"前":"後";
       return Object.keys(DRV).filter(dn=>{
         const a=dravail(dn,di); if(!(a==="◯"||a===wantVal)) return false;
         if(usedDrv.has(dn)||isNGDrv(doc,dn)) return false;
         if(docHas(doc,di,"✓") && NGDRV.some(p=>p[0]==="【物品庫チェック】"&&p[1]===dn)) return false; // 物品庫チェックは付けない
         if(isContract && !CONTRACTDRV.includes(dn)) return false; // 契約車は契約専任のみ（専任は契約以外にも付ける）
+        if(isPD && !PDDRV.includes(dn)) return false; // PDの車はPD対応ドライバーのみ
         return true;
       });
     };
@@ -802,9 +813,9 @@ function generate(auto){
         const sep=wd<4?"daysep":"";
         if(ci<pairs.length){
           const [doc,nur]=pairs[ci];
-          const treat=docHas(doc,di,"◎"), contract=docHas(doc,di,"契"), chk=docHas(doc,di,"✓");
+          const treat=docHas(doc,di,"◎"), contract=docHas(doc,di,"契"), chk=docHas(doc,di,"✓"), pd=docHas(doc,di,"P");
           const dpm=docHas(doc,di,"前")?"<br><small>午前</small>":docHas(doc,di,"後")?"<br><small>午後</small>":""; // 午前/午後は名前の下段に
-          const marks=(treat?" ◎":"")+(contract?" 【契】":"")+(chk?" ✓":"");
+          const marks=(treat?" ◎":"")+(contract?" 【契】":"")+(chk?" ✓":"")+(pd?' <small style="color:#6b3fa0;font-weight:700">PD</small>':"");
           html+=`<td class="doc${treat?" treat":contract?" contract":""}">${doc}${marks}${dpm}</td>`;
           if(nur){const c=R.paSet.has(nur)?"nur-pa":"nur-jp"; const nv=NUR[nur]?NUR[nur].av[di]:""; const npm=nv==="前"?"<br><small>午前</small>":nv==="後"?"<br><small>午後</small>":""; html+=`<td class="${c}">${paBreak(nur)}${npm}</td>`;}
           else html+=`<td class="nur-no">—</td>`;
@@ -871,7 +882,7 @@ function generate(auto){
 
   // ドライバー検証（管理ページ2モード）
   if(admin2Mode){
-    let drvShort=0, drvNG=0, drvContract=0, drvSolo=0;
+    let drvShort=0, drvNG=0, drvContract=0, drvSolo=0, drvPD=0;
     for(let di=0; di<NDAY; di++){
       const pairs=R.schedule[di], drivers=R.dschedule[di];
       pairs.forEach(([doc,nur],i)=>{
@@ -884,15 +895,17 @@ function generate(auto){
           if(docHas(doc,di,"✓") && NGDRV.some(p=>p[0]==="【物品庫チェック】"&&p[1]===dn)) drvNG++;
           const isC=docHas(doc,di,"契");
           if(isC && !CONTRACTDRV.includes(dn)) drvContract++; // 契約車は契約専任のみ（専任が契約以外の車に付くのはOK）
+          if(docHas(doc,di,"P") && !PDDRV.includes(dn)) drvPD++; // PDの車はPD対応ドライバーのみ
         });
       });
     }
     NGDRV.filter(p=>p[0]==="【単独】").forEach(p=>{ if(DRV[p[1]]) DRV[p[1]].av.forEach(v=>{ if(v==="単独") drvSolo++; }); });
-    const drvHealthy = drvShort===0 && drvNG===0 && drvContract===0 && drvSolo===0;
+    const drvHealthy = drvShort===0 && drvNG===0 && drvContract===0 && drvSolo===0 && drvPD===0;
     html+=`<div class="card"><h2>ドライバー検証（管理ページ2）</h2>`+
       vrow("ドライバー不足（医師＋看護師いるが運転者なし・午前/午後別）", drvShort===0, drvShort+"件")+
       vrow("医師×ドライバーNGの割当", drvNG===0, drvNG+"件")+
       vrow("契約日の割当ルール（契約車は契約専任のみ）", drvContract===0, drvContract+"件")+
+      vrow("PDの車はPD対応ドライバーのみ", drvPD===0, drvPD+"件")+
       vrow("単独禁止ドライバーの単独設定", drvSolo===0, drvSolo+"件")+
       `<div style="margin-top:12px;text-align:center"><span class="badge ${drvHealthy?"ok":"warn"}">総合判定：${drvHealthy?"健全":"要確認"}</span></div></div>`;
   }
@@ -969,7 +982,7 @@ function exportExcel(){
       const row=[CARS[ci]];
       for(let wd=0; wd<5; wd++){
         const di=wk*5+wd, pairs=R.schedule[di];
-        if(ci<pairs.length){ const [doc,nur]=pairs[ci]; const dc=R.dschedule[di][ci]||{am:null,pm:null}; const dstr=(!dc.am&&!dc.pm)?"—":(dc.am===dc.pm?dc.am:`前 ${dc.am||"—"} / 後 ${dc.pm||"—"}`); const dpm=docHas(doc,di,"前")?" 午前":docHas(doc,di,"後")?" 午後":""; const nv=nur&&NUR[nur]?NUR[nur].av[di]:""; const npm=nv==="前"?"（午前）":nv==="後"?"（午後）":""; row.push(doc+(docHas(doc,di,"◎")?" ◎":"")+(docHas(doc,di,"契")?" 契":"")+(docHas(doc,di,"✓")?" ✓":"")+dpm, (nur||"—")+npm, dstr); }
+        if(ci<pairs.length){ const [doc,nur]=pairs[ci]; const dc=R.dschedule[di][ci]||{am:null,pm:null}; const dstr=(!dc.am&&!dc.pm)?"—":(dc.am===dc.pm?dc.am:`前 ${dc.am||"—"} / 後 ${dc.pm||"—"}`); const dpm=docHas(doc,di,"前")?" 午前":docHas(doc,di,"後")?" 午後":""; const nv=nur&&NUR[nur]?NUR[nur].av[di]:""; const npm=nv==="前"?"（午前）":nv==="後"?"（午後）":""; row.push(doc+(docHas(doc,di,"◎")?" ◎":"")+(docHas(doc,di,"契")?" 契":"")+(docHas(doc,di,"✓")?" ✓":"")+(docHas(doc,di,"P")?" PD":"")+dpm, (nur||"—")+npm, dstr); }
         else if(ci-pairs.length<STANDBY[di].length){ row.push("待機", STANDBY[di][ci-pairs.length], ""); }
         else if(ci-pairs.length-STANDBY[di].length<INHOUSE[di].length){ row.push("内勤", INHOUSE[di][ci-pairs.length-STANDBY[di].length], ""); }
         else { row.push("","",""); }
@@ -1024,7 +1037,7 @@ function stRange(st){ if(!st||!Array.isArray(st.WKSTART)) return ""; const a=par
 function gatherState(){ syncWindowToWeeks(); return {
   WEEKS:clone(WEEKS),
   roster:{ docNames:Object.keys(DOC), nur:Object.keys(NUR).map(n=>({name:n,pa:!!NUR[n].pa})), drvNames:Object.keys(DRV) },
-  NG:clone(NG), PAPREF:clone(PAPREF), NGDRV:clone(NGDRV), CONTRACTDRV:clone(CONTRACTDRV),
+  NG:clone(NG), PAPREF:clone(PAPREF), NGDRV:clone(NGDRV), CONTRACTDRV:clone(CONTRACTDRV), PDDRV:clone(PDDRV),
   WKSTART:WKSTART.slice(), savedAt:new Date().toISOString() }; }
 function applyState(s){
   if(!s||typeof s!=="object") return false;
@@ -1038,6 +1051,7 @@ function applyState(s){
   if(Array.isArray(s.PAPREF)) PAPREF=s.PAPREF;
   if(Array.isArray(s.NGDRV)) NGDRV=s.NGDRV;
   if(Array.isArray(s.CONTRACTDRV)) CONTRACTDRV=s.CONTRACTDRV;
+  PDDRV=Array.isArray(s.PDDRV)?s.PDDRV:[];
   if(Array.isArray(s.WKSTART)&&s.WKSTART.length===2) WKSTART=s.WKSTART.slice();
   loadWindowFromWeeks();
   return true;
@@ -1050,7 +1064,7 @@ function migrateOld(rec){
   const W={}; let roster=null, rules=null;
   Object.keys(periods).sort().forEach(pk=>{ const st=periods[pk]; if(!st||!st.DOC||!Array.isArray(st.WKSTART)) return;
     roster={ docNames:Object.keys(st.DOC), nur:Object.keys(st.NUR||{}).map(n=>({name:n,pa:!!(st.NUR[n]&&st.NUR[n].pa)})), drvNames:Object.keys(st.DRV||{}) };
-    rules={ NG:st.NG||[], PAPREF:st.PAPREF||[], NGDRV:st.NGDRV||[], CONTRACTDRV:st.CONTRACTDRV||[] };
+    rules={ NG:st.NG||[], PAPREF:st.PAPREF||[], NGDRV:st.NGDRV||[], CONTRACTDRV:st.CONTRACTDRV||[], PDDRV:st.PDDRV||[] };
     [0,1].forEach(wk=>{ const k=st.WKSTART[wk]; if(!k) return; const w={doc:{},nur:{},drv:{},manual:[]};
       Object.keys(st.DOC).forEach(n=>w.doc[n]=(st.DOC[n]||[]).slice(wk*5,wk*5+5));
       Object.keys(st.NUR||{}).forEach(n=>w.nur[n]=((st.NUR[n]&&st.NUR[n].av)||[]).slice(wk*5,wk*5+5));
@@ -1058,7 +1072,7 @@ function migrateOld(rec){
       (st.MANUALDRV||[]).filter(m=>Math.floor(m.di/5)===wk).forEach(m=>w.manual.push({wd:m.di%5,doc:m.doc,drv:m.drv}));
       W[k]=w; }); });
   if(!roster) return null;
-  return { WEEKS:W, roster, NG:rules.NG, PAPREF:rules.PAPREF, NGDRV:rules.NGDRV, CONTRACTDRV:rules.CONTRACTDRV, WKSTART:WKSTART.slice(), savedAt:new Date().toISOString() };
+  return { WEEKS:W, roster, NG:rules.NG, PAPREF:rules.PAPREF, NGDRV:rules.NGDRV, CONTRACTDRV:rules.CONTRACTDRV, PDDRV:rules.PDDRV, WKSTART:WKSTART.slice(), savedAt:new Date().toISOString() };
 }
 async function cloudSave(){
   setCloud("保存中…");
@@ -1139,6 +1153,13 @@ function renderContractDrv(){
   if(list) list.innerHTML=CONTRACTDRV.map((d,i)=>`<span class="tag"><b>${d}</b><span onclick="CONTRACTDRV.splice(${i},1);renderContractDrv();generate(true)">×</span></span>`).join("")||"<span class='hint'>なし</span>";
 }
 function addContractDrv(){ const d=document.getElementById("contractDrvSel").value; if(d&&!CONTRACTDRV.includes(d)){ CONTRACTDRV.push(d); renderContractDrv(); generate(true); } }
+function renderPdDrv(){
+  const sel=document.getElementById("pdDrvSel");
+  if(sel) sel.innerHTML=Object.keys(DRV).map(d=>`<option>${d}</option>`).join("");
+  const list=document.getElementById("pdDrvList");
+  if(list) list.innerHTML=PDDRV.map((d,i)=>`<span class="tag"><b>${d}</b><span onclick="PDDRV.splice(${i},1);renderPdDrv();generate(true)">×</span></span>`).join("")||"<span class='hint' style='margin:0'>PD対応ドライバーは未設定です</span>";
+}
+function addPdDrv(){ const d=document.getElementById("pdDrvSel").value; if(d&&!PDDRV.includes(d)){ PDDRV.push(d); renderPdDrv(); generate(true); } }
 
 /* 起動 */
 async function start(){
