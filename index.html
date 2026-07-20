@@ -175,7 +175,7 @@
   </div>
 
   <div class="card no-print">
-    <h2>① 医師スケジュール</h2>
+    <h2>① 医師スケジュール <span id="docStatus" style="font-size:12px;font-weight:600;vertical-align:middle"></span></h2>
     <details class="sec-desc"><summary>説明</summary><p class="hint">セルをタップして設定します。○=稼働 / ◎=処置あり / 契=契約 / ✓=物品庫チェック / PD / 前=午前のみ / 後=午後のみ は<b>複数選択できます</b>（×=休のみ単独）。PDの日は<b>PD対応ドライバー</b>だけが割り当てられます（③で設定）。契約の日は結果表で【契】が付き、契約専任ドライバーだけが割り当てられます。物品庫チェックの日は、医師名の横に✓が付きます。<b>前／後は表示ラベル</b>で、割当は終日1台のまま（結果表に「午前」「午後」と表示）。</p></details>
     <p class="mhint">← 表は横にスクロールできます →</p>
     <div class="tscroll"><table id="docTbl"></table></div>
@@ -366,7 +366,7 @@ function baseWeekArr(kind,n){
 }
 function syncWindowToWeeks(){ // 表示中2週間 → WEEKS
   [0,1].forEach(wk=>{ const k=WKSTART[wk]; if(!k) return;
-    const w={doc:{},nur:{},drv:{},manual:[]};
+    const w={doc:{},nur:{},drv:{},manual:[], docDone:!!(WEEKS[k]&&WEEKS[k].docDone)};
     Object.keys(DOC).forEach(n=>w.doc[n]=DOC[n].slice(wk*5,wk*5+5));
     Object.keys(NUR).forEach(n=>w.nur[n]=NUR[n].av.slice(wk*5,wk*5+5));
     Object.keys(DRV).forEach(n=>w.drv[n]=DRV[n].av.slice(wk*5,wk*5+5));
@@ -431,6 +431,12 @@ function cls(v){return v==="○"?"on":v==="×"?"off":v==="◎"?"chu":v==="契約
 function paBreak(n){ return (n&&n.indexOf("PA")===0) ? "PA<br>"+n.slice(2) : n; } // PA看護師は「PA」で改行し名前を下段に
 function dcls(v){return ({"◯":"on","前":"am","後":"pm","△":"nai","単独":"drv4","×":"off"})[v]||"on";}
 function docCellClass(v){ if(v==="×"||!v)return "off"; if(v.indexOf("◎")>=0)return "chu"; if(v.indexOf("契")>=0)return "keiyaku"; return "on"; }
+function docDone(wk){ const k=WKSTART[wk]; return !!(WEEKS[k]&&WEEKS[k].docDone); }
+function toggleDocDone(wk){ const k=WKSTART[wk]; if(!k) return; syncWindowToWeeks(); WEEKS[k].docDone=!WEEKS[k].docDone; updateDocStatus(); }
+function updateDocStatus(){ const el=document.getElementById("docStatus"); if(!el) return;
+  el.innerHTML=[0,1].map(wk=>{ const done=docDone(wk);
+    return `<span onclick="toggleDocDone(${wk})" title="クリックで入力済み/未入力を切替" style="cursor:pointer;user-select:none;display:inline-block;margin-left:6px;padding:2px 9px;border-radius:11px;${done?"background:#E2EFDA;color:#2E7D32;border:1px solid #b9d8b9":"background:#F1F3F7;color:#8a94a6;border:1px solid #dfe4ec"}">${done?"☑":"☐"} ${weekTitle(wk)}：${done?"入力済み":"未入力"}</span>`;
+  }).join(""); }
 
 function renderInputs(){
   // doctors（週別：1週目 月〜金 / 2週目 月〜金）
@@ -445,6 +451,7 @@ function renderInputs(){
     h+="</tr>";
   }
   document.getElementById("docTbl").innerHTML=h+"</tbody>";
+  updateDocStatus();
   // nurses（週別：1週目 月〜金 / 2週目 月〜金）
   let g="<thead><tr><th rowspan='2'>看護師</th><th rowspan='2'>区分</th>"+
     `<th colspan='5' class='daysep'>${weekTitle(0)}</th><th colspan='5'>${weekTitle(1)}</th></tr><tr>`+
